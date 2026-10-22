@@ -39,7 +39,9 @@ test('first run writes the catalog and prints one line of context', () => {
   const out = JSON.parse(r.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart');
   const line = out.hookSpecificOutput.additionalContext;
-  assert.ok(line.length <= 300, `${line.length} chars`);
+  // The catalog path depends on the temp folder (long on macOS); the line itself stays short.
+  const bare = line.replaceAll(catalog(home), '<catalog>');
+  assert.ok(bare.length <= 300, `${bare.length} chars`);
   assert.ok(!line.includes('\n'));
   assert.ok(line.includes(catalog(home)));
   assert.ok(fs.existsSync(path.join(catalog(home), 'skills.md')));
