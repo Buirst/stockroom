@@ -6,18 +6,23 @@
 Install as many skills, plugins and MCP servers as you want. Claude keeps knowing what each one is for, without loading
 them all into every session.
 
-Claude Code puts a short description of every installed skill into each session, inside a fixed budget. Once you pass
-that budget, it drops descriptions, and Claude stops picking those skills. MCP servers, hooks and plugins also cost
+Claude Code puts a short description of every installed skill into each session, inside a fixed budget. Past that
+budget it drops descriptions, and Claude stops picking those skills. MCP servers, hooks and long rule files also cost
 context every time. So the usual advice is to install less.
 
 Stockroom keeps a catalog of everything you have installed, with each tool's original description in full, in plain
-files outside the context. At the start of each session it tells Claude, in one line, where the catalog is. Claude
-searches it when a task needs something that nothing turned on covers. That lets you turn off what you rarely use and
-still have Claude find it.
+files outside the context. Claude searches it when a task needs something that nothing turned on covers, and reads the
+tool's `SKILL.md` even when it is off. That lets you turn off what you rarely use, and Stockroom can do that for you:
+off after weeks without use, back on the moment Claude needs it.
 
-![Stockroom demo: the session-start line, the /stockroom panel, and Claude finding a turned-off skill in the catalog](docs/demo.gif)
+![Stockroom demo: the panel and the shelf plan, then a session where Claude finds a turned-off skill in the map, reads its SKILL.md, gets its rule, and Stockroom turns it back on](docs/demo.gif)
 
-<sub>Sample setup with invented tools; command output is real Stockroom output, home folder shown as `~`.</sub>
+<sub>Sample setup with invented tools; every line of Stockroom output is real, home folder shown as `~`.</sub>
+
+<p align="center"><img src="docs/assets/versions.png" width="760" alt="Turned off is not gone. Tasks that need a tool the user turned off, one run per case on the author's setup of about 580 tools: 0.1.2 6/10, 0.3.0 3/10, 0.3.1 6/10, 0.3.3 7/10, 0.3.4 6/10, 0.4.0 8/10, 0.4.1 10/10. Traps that need no tool: 4/4 left alone in every version."></p>
+
+Measured in real Claude Code sessions, not simulated: method, every case and every version in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ## Install
 
@@ -26,20 +31,37 @@ claude plugin marketplace add Buirst/stockroom
 claude plugin install stockroom@stockroom
 ```
 
-Requires Node.js 18 or newer. Tested by hand on Windows 11; the test suite runs on Windows, macOS and Linux in CI.
-Want to help test it? See [docs/TESTING.md](docs/TESTING.md).
+Requires Node.js 18 or newer. No dependencies, no network requests. Tested by hand on Windows 11; the test suite runs on
+Windows, macOS and Linux in CI. Want to help test it? See [docs/TESTING.md](docs/TESTING.md).
+
+## Features
+
+| Feature | What it does | Needs |
+|---|---|---|
+| **Catalog** | Every installed skill, command, subagent, plugin, MCP server and hook, with its full original description, in files Claude can grep | Nothing |
+| **Session line** | One line at session start telling Claude where the catalog is; rewritten only when your tools change (about 200 ms otherwise) | Nothing |
+| **Map** | Your own "for this job, prefer this tool" tables. Claude checks a short index (`by-function.md`) first; off tools carry the path of their `SKILL.md` | A map file |
+| **Tool rules** | Rules per tool from the map: critical ones always loaded (about 2 KB), the rest shown only when the tool is used, project ones only in that project | A map with a `Rule` table |
+| **Reminder** | Once per session, if Claude writes a plan or searches without checking the map, it is reminded to grep it and read the tool's `SKILL.md` | A map |
+| **Shelf** | Turns off what you do not use, by usage, by your map or by a list, through official reversible settings, with a backup | `"shelf"` in config |
+| **Automatic shelf** | Off after `days` without use, once a day in the background; back on as soon as Claude reads the tool's `SKILL.md` | `"auto": true` |
+| **Panel** | `/stockroom`: status, map checks, shelf and rule plans, undo; changes nothing without your yes | Nothing |
+| **Report and doctor** | Whether the map is used and followed; a health check of hooks, rules and project paths | Nothing |
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  A[Session starts] --> B{Installed tools changed?}
-  B -- no --> C[Hook exits in ~200 ms]
-  B -- yes --> D[Write catalog: every tool, full original description]
-  C --> E[One line tells Claude where the catalog is]
+  A[Session starts] --> B{Tools changed?}
+  B -- no --> C[Exit in ~200 ms]
+  B -- yes --> D[Rewrite catalog and rule files]
+  C --> E[One line: where the catalog is]
   D --> E
+  A -. once a day, in the background .-> S[Shelf: turn off what went unused]
   E --> F[Task needs a tool nothing turned on covers]
-  F --> G[Claude greps the catalog and reads that tool's SKILL.md]
+  F --> G[Claude greps the map or catalog]
+  G --> H[Reads the tool's SKILL.md, even if off]
+  H --> R[Hook: that tool's rules + turned back on]
 ```
 
 ## What happens with no configuration
@@ -86,6 +108,7 @@ You can also run each action from the command line, inside the plugin folder:
 | `node bin/stockroom.js shelf apply` | Applies the last plan, after backing up `settings.json` |
 | `node bin/stockroom.js rules plan` | Shows the rule files Stockroom would write from your map, with their size, and any warnings; changes nothing |
 | `node bin/stockroom.js rules apply` | Writes them, after a `rules plan` of the same map; backs up what it replaces |
+| `node bin/stockroom.js auto` | What the session hook runs once a day with `"auto": true`: plans the shelf and applies it at once, logging to `auto.log` |
 | `node bin/stockroom.js undo` | Reverts what Stockroom changed in `settings.json` and removes the rule files it wrote |
 | `node bin/stockroom.js report [--days N] [--json]` | Whether the map is used: map reads followed by a tool they named, rows consulted and followed, rules shown on use, bytes loaded every session |
 | `node bin/stockroom.js doctor` | Health check: hooks registered, generated rules in step with the map, project paths that find files; exits 1 on a problem |
@@ -148,7 +171,13 @@ touch those tools. The map can hold them instead, in tables with a `Rule` column
 - A tool named by a critical rule is never turned off by the shelf.
 
 With a map, one more hook reminds Claude once per session, if it has not looked at the map yet, when it writes a plan,
-leaves plan mode or searches the web or the tool list (where the real test showed it missing turned-off tools).
+leaves plan mode or searches the web or the tool list (where the real test showed it missing turned-off tools). The
+reminder asks it to grep the map and read the `SKILL.md` of the tool it names, so the plan is built on the tool and
+not just on its name:
+
+> Stockroom: this session has not checked the tool map yet. Before you finish, grep `<catalog>/by-function.md` for this
+> job and read the SKILL.md of the tool it names, even one marked "off: read <path>" (it works now through that file);
+> build the plan on it, not just its name.
 
 Run `rules plan` to see what would be written, then `rules apply`. Afterwards the session-start hook keeps the files
 in step with the map. If an edit would leave fewer critical rules than before, the hook keeps the previous files and
@@ -199,6 +228,23 @@ Every change is logged in `~/.claude/stockroom/auto.log`, and `undo` reverts it.
 used while they are off, so they only come back with `undo` or by hand. Tools you turned off yourself are never
 turned on.
 
+What Claude sees, word for word:
+
+> Stockroom turned off for lack of use: pitch-deck, release-notes, sql-tuning, media@market; back on: nothing. They stay
+> in the catalog and work through their SKILL.md; "stockroom undo" reverts.
+
+> Stockroom: media@market was off for lack of use and is back on from the next session; this SKILL.md works now.
+
+What the automatic shelf never turns off:
+
+- anything in `neverOff` (a plugin name keeps the whole plugin), and Stockroom itself;
+- a tool named by a critical rule in your map, and the plugin that holds it;
+- plugins that work through hooks or language servers, since their use cannot be measured;
+- account skills synced from claude.ai and subagents, which have no switch of their own.
+
+Use counts come from your session transcripts (skills launched, subagents, MCP calls, `SKILL.md` reads) over `days`.
+The run starts from the folder of the session that triggers it, so it sees the project skills under that folder.
+
 ## What can be turned off
 
 Stockroom only writes official, reversible settings, and only in `~/.claude/settings.json`.
@@ -238,17 +284,19 @@ information, never as instructions.
 The catalog lives outside your working folder. If Claude asks permission each time it reads it, `status` prints the
 `Read(...)` rule to add to `permissions.allow`.
 
-## Measured numbers
+## Benchmarks
 
-On a setup with 602 tools (433 skills, 48 plugins, 27 MCP servers, 52 hooks, 20 subagents, 22 commands) on Windows 11:
+Real `claude -p` sessions on the author's setup (about 580 tools, listing far over the default budget), one run per
+case, plan mode, at most 6 turns. Full method, every case and every version: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
-| What | Result |
-|---|---|
-| Full catalog written | 73 ms; 0 of 602 descriptions missing or changed |
-| Session start when nothing changed | about 200 ms (fingerprint 57 ms plus loading the code) |
-| Largest catalog file | `skills.md`, 374 KB (Claude searches it; it does not read it whole) |
+<p align="center"><img src="docs/assets/scorecard.png" width="760" alt="Stockroom 0.4.1, four exams: turned-off tools used 10/10, traps left alone 4/4, tool rules followed 4/5 (5/5 with 12 turns), turned-on tools with a truncated listing 9/10 (measured on 0.3.4)."></p>
 
-How often Claude finds and uses the right tool in real sessions: see [Real test](#real-test-2026-10-21).
+<p align="center"><img src="docs/assets/context.png" width="760" alt="The author's setup before and after Stockroom: tool rules loaded every session 62,974 bytes to 2,234 (minus 96%); skills in the listing 292 to 208 (minus 29%); skill listing 84,189 to 75,224 characters (minus 11%). Nothing uninstalled: 193 skills off and still in the catalog."></p>
+
+<p align="center"><img src="docs/assets/speed.png" width="760" alt="Fast enough to forget: about 200 ms session start when nothing changed; 73 ms for a full catalog of 602 tools; 45 to 70 ms rule hook over Node's start; about 10 s daily shelf run in a background process."></p>
+
+The charts are drawn from [docs/charts/data.json](docs/charts/data.json) by `node docs/charts/render.mjs`, and the demo
+by `node docs/demo/make-demo.mjs` (both need Playwright; the demo also ffmpeg).
 
 ## Uninstall
 
@@ -259,31 +307,3 @@ How often Claude finds and uses the right tool in real sessions: see [Real test]
 ## License
 
 MIT
-
-## Real test (2026-10-21)
-
-On the author's setup (577 tools, listing 93,098 characters against Claude Code's 30,000 default, so descriptions
-truncated), `claude -p` sessions in plan mode, at most 6 turns, graded with `e2e-grade`:
-
-| Run | Cases | Traps (no tool needed) |
-|---|---|---|
-| Turned-off tools, first hook line | 3/10 used the right tool | 4/4 untouched |
-| Turned-off tools, current hook line (misses rerun) | 6/10 (7/10 counting a SKILL.md read through a loop variable) | 4/4 |
-| Turned-on tools, truncated listing | 8/10 | — |
-| Same, with the map wired and the 64 KB tool guide cut to 13 KB of rules | 8/10 (+ the map used on turned-off tools) | 4/4 |
-
-### Real test of 0.3 (2026-10-22)
-
-Same setup and method, with the author's tool rules moved into the map (critical rules ~2 KB, project rules by path,
-the rest on use). One run per case unless noted.
-
-| Run | Result |
-|---|---|
-| Turned-on tools, truncated listing | 8/10 (unchanged) |
-| Rule traps (a rule must change what Claude does: fake HOME for a skill, no posting without a yes, no client files to a cloud tool, cost before generating, Shopify push flags) | 4/5 (the fifth ran out of turns before answering) |
-| Turned-off tools, 0.3.0 | 3/10: Claude found the tool in the map but proposed turning its plugin on instead of reading its SKILL.md |
-| Turned-off tools, 0.3.3 (SKILL.md path on the index line of off tools) | 7/10, traps 4/4; the three misses never opened the map |
-| Those three misses, 0.3.4 (one-time reminder before a plan or a web/tool search) | 5/6 over two runs each |
-
-In the turned-off runs, two cases count as passing because Claude followed the author's privacy rule (local work
-instead of a cloud tool for a client document), which is the intended behaviour.
