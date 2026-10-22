@@ -257,3 +257,19 @@ truncated), `claude -p` sessions in plan mode, at most 6 turns, graded with `e2e
 | Turned-off tools, current hook line (misses rerun) | 6/10 (7/10 counting a SKILL.md read through a loop variable) | 4/4 |
 | Turned-on tools, truncated listing | 8/10 | — |
 | Same, with the map wired and the 64 KB tool guide cut to 13 KB of rules | 8/10 (+ the map used on turned-off tools) | 4/4 |
+
+### Real test of 0.3 (2026-10-22)
+
+Same setup and method, with the author's tool rules moved into the map (critical rules ~2 KB, project rules by path,
+the rest on use). One run per case unless noted.
+
+| Run | Result |
+|---|---|
+| Turned-on tools, truncated listing | 8/10 (unchanged) |
+| Rule traps (a rule must change what Claude does: fake HOME for a skill, no posting without a yes, no client files to a cloud tool, cost before generating, Shopify push flags) | 4/5 (the fifth ran out of turns before answering) |
+| Turned-off tools, 0.3.0 | 3/10: Claude found the tool in the map but proposed turning its plugin on instead of reading its SKILL.md |
+| Turned-off tools, 0.3.3 (SKILL.md path on the index line of off tools) | 7/10, traps 4/4; the three misses never opened the map |
+| Those three misses, 0.3.4 (one-time reminder before a plan or a web/tool search) | 5/6 over two runs each |
+
+In the turned-off runs, two cases count as passing because Claude followed the author's privacy rule (local work
+instead of a cloud tool for a client document), which is the intended behaviour.
