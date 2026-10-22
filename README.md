@@ -147,6 +147,9 @@ touch those tools. The map can hold them instead, in tables with a `Rule` column
   must be critical or belong to a project; `check` warns otherwise.
 - A tool named by a critical rule is never turned off by the shelf.
 
+With a map, one more hook reminds Claude once per session, if it has not looked at the map yet, when it writes a plan,
+leaves plan mode or searches the web or the tool list (where the real test showed it missing turned-off tools).
+
 Run `rules plan` to see what would be written, then `rules apply`. Afterwards the session-start hook keeps the files
 in step with the map. If an edit would leave fewer critical rules than before, the hook keeps the previous files and
 tells Claude so in its line. Stockroom never overwrites or deletes a file it did not write (its files start with a

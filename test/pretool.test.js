@@ -85,8 +85,10 @@ test('the hook script adds little to Node start-up, with and without rules', () 
 });
 
 test('hooks.json registers the PreToolUse handlers on the pretool script, not on MCP calls', () => {
-  const hooks = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../hooks/hooks.json', import.meta.url)), 'utf8')).hooks.PreToolUse;
+  const all = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../hooks/hooks.json', import.meta.url)), 'utf8')).hooks.PreToolUse;
+  const hooks = all.filter((g) => /bin\/pretool\.js/.test(g.hooks[0].command));
   assert.deepEqual(hooks.map((g) => g.matcher), ['Skill', 'Read']);
+  assert.ok(!all.some((g) => /mcp__/.test(g.matcher)), 'no handler on MCP calls');
   assert.equal(hooks[1].hooks[0].if, 'Read(**/SKILL.md)');
   for (const g of hooks) assert.match(g.hooks[0].command, /bin\/pretool\.js/);
 });

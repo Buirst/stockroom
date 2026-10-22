@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4 (2026-10-22)
+
+- With a map: a one-time reminder per session, when Claude writes a plan, leaves plan mode or searches the web or the
+  tool list without having looked at the map yet. In the real test the remaining misses never opened the map.
+
 ## 0.3.3 (2026-10-22)
 
 - The session line says that a tool marked "off: read <path>" in the map works now through that file.

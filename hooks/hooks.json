@@ -23,6 +23,18 @@
         "hooks": [
           { "type": "command", "if": "Read(**/SKILL.md)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/pretool.js\"", "timeout": 5 }
         ]
+      },
+      {
+        "matcher": "ExitPlanMode|WebSearch|ToolSearch",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/nudge.js\"", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          { "type": "command", "if": "Write(**/.claude/plans/**)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/nudge.js\"", "timeout": 5 }
+        ]
       }
     ]
   }
