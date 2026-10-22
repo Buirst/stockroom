@@ -139,3 +139,10 @@ test('writing the same rules twice makes no backup and leaves files alone', () =
   writeRules({ home: h, built: build(MAP.replace('never client documents', 'never client files')), mapFiles: ['m.md'] });
   assert.equal(fs.readdirSync(backups).length, 1, 'a real change is backed up');
 });
+
+test('web, app and CLI tools in a rule table are external, not unknown', () => {
+  const map = '| Tool | Rule | Level |\n|---|---|---|\n| web `r.jina.ai`, CLI `opencli`, app `Excel` | Never private URLs | critical |\n';
+  const b = buildRules({ rules: parseRules(map, 'm.md'), cases: [], tools, config });
+  assert.deepEqual(b.warnings, []);
+  assert.match(b.critical, /Never private URLs/);
+});

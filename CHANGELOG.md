@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 (2026-10-22)
+
+- The map index sections give each skill's SKILL.md path, and the session line says a tool works through its SKILL.md
+  even when it is off. In the real test, Claude found turned-off tools in the map but proposed turning them on instead
+  of reading them (strict score 3/10).
+- Rule tables: `web`, `app` and `CLI` tools no longer warn "matches no installed tool".
+
 ## 0.3.0 (2026-10-22)
 
 Tool rules and projects, from the map.

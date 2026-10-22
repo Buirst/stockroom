@@ -179,3 +179,9 @@ test('rules: a tool entry lists its rules, and its by-function row too; no rules
   assert.equal(byFunction(empty), byFunction(plain));
   assert.doesNotMatch(read(plain, 'skills.md'), /- rules:/);
 });
+
+test('by-function section files give the SKILL.md path of each skill, so an off skill is one read away', () => {
+  const out = tmp();
+  writeCatalog({ tools, cases: [{ file: 'm', section: 'Debug', title: 'Find a bug', tools: ['debugging'], why: '' }], outDir: out });
+  assert.match(sections(out).join('\n'), /- `debugging`: on · personal · skills\.md · SKILL\.md: \/h\/\.claude\/skills\/debugging\/SKILL\.md/);
+});

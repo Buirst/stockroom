@@ -195,3 +195,9 @@ test('an unreadable config: the usual line plus the error sentence', () => {
   assert.ok(said.startsWith('Stockroom: '));
   assert.match(said, /Stockroom: an internal error occurred; details: .*errors\.log\.$/);
 });
+
+test('with a map, the line says an off tool works through its SKILL.md', () => {
+  const line = HOOK_LINE(path.join('C:', 'Users', 'someone-with-a-long-name', '.claude', 'stockroom', 'catalog'), true);
+  assert.match(line, /even when the tool is off/);
+  assert.ok(line.length <= 300, `${line.length} chars`);
+});
