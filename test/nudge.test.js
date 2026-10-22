@@ -57,5 +57,5 @@ test('hooks.json: the reminder runs on plan writes, ExitPlanMode, WebSearch and 
   const pre = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../hooks/hooks.json', import.meta.url)), 'utf8')).hooks.PreToolUse;
   const nudges = pre.filter((g) => /bin\/nudge\.js/.test(g.hooks[0].command));
   assert.deepEqual(nudges.map((g) => g.matcher), ['ExitPlanMode|WebSearch|ToolSearch', 'Write']);
-  assert.equal(nudges[1].hooks[0].if, 'Write(**/.claude/plans/**)');
+  assert.equal(nudges[1].hooks[0].if, 'Write(~/.claude/plans/**)');
 });

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5 (2026-10-22)
+
+- The reminder now fires when Claude writes a plan. Plans live in `~/.claude/plans`, and the hook looked for them under
+  the working folder, so in the real test it never fired on a plan write.
+
 ## 0.3.4 (2026-10-22)
 
 - With a map: a one-time reminder per session, when Claude writes a plan, leaves plan mode or searches the web or the

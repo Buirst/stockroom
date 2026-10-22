@@ -33,7 +33,7 @@
       {
         "matcher": "Write",
         "hooks": [
-          { "type": "command", "if": "Write(**/.claude/plans/**)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/nudge.js\"", "timeout": 5 }
+          { "type": "command", "if": "Write(~/.claude/plans/**)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/nudge.js\"", "timeout": 5 }
         ]
       }
     ]
