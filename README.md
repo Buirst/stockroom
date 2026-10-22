@@ -15,6 +15,10 @@ files outside the context. At the start of each session it tells Claude, in one 
 searches it when a task needs something that nothing turned on covers. That lets you turn off what you rarely use and
 still have Claude find it.
 
+![Stockroom demo: the session-start line, the /stockroom panel, and Claude finding a turned-off skill in the catalog](docs/demo.gif)
+
+<sub>Sample setup with invented tools; command output is real Stockroom output, home folder shown as `~`.</sub>
+
 ## Install
 
 ```sh
