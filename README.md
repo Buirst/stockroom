@@ -1,4 +1,9 @@
-# Stockroom
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup-dark.svg">
+    <img src="docs/brand/lockup-light.svg" alt="Stockroom" width="380">
+  </picture>
+</h1>
 
 [![tests](https://github.com/Buirst/stockroom/actions/workflows/test.yml/badge.svg)](https://github.com/Buirst/stockroom/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -307,4 +312,4 @@ by `node docs/demo/make-demo.mjs` (both need Playwright; the demo also ffmpeg).
 
 ## License
 
-MIT
+MIT. Logo and brand files: [docs/brand](docs/brand/README.md).

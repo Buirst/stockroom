@@ -79,7 +79,7 @@ function speed(d) {
 
 const charts = { versions: bars(data.versions), scorecard: bars(data.scorecard, 380), context: context(data.context), speed: speed(data.speed) };
 fs.mkdirSync(out, { recursive: true });
-const browser = await pw.chromium.launch();
+const browser = await pw.chromium.launch({ executablePath: process.env.BROWSER || undefined }); // BROWSER=<Chromium-based browser>, e.g. Brave;
 const tab = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 960, height: 800 } });
 for (const [name, html] of Object.entries(charts)) {
   await tab.setContent(html, { waitUntil: 'networkidle' });

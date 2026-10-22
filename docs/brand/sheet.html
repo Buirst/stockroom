@@ -1,0 +1,103 @@
+<!doctype html>
+<!-- Brand sheet. Rendered to brand-sheet.png by docs/brand/render.mjs -->
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;800&display=swap'); /* taste-skill-ignore: JetBrains Mono is the brand typeface (wordmark, README charts, terminal) */
+* { box-sizing: border-box; margin: 0; }
+html { background: #0f0e0d; color: #ece5d8; }
+body { width: 1600px; background: #0f0e0d; color: #ece5d8; font-family: 'JetBrains Mono', monospace; padding: 72px; } /* taste-skill-ignore: brand typeface */
+h2 { color: inherit; font-size: 26px; font-weight: 800; margin: 10px 0 18px; letter-spacing: -.01em; }
+p { font-size: 15px; line-height: 1.6; color: #a39b90; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+.panel { color: #ece5d8; border-radius: 22px; padding: 40px; background: #141210; }
+.panel.light { background: #f6f2ea; color: #1a1714; }
+.panel.light h2 { color: #1a1714; }
+.panel.light p { color: #6b645b; }
+.lockup { width: 100%; height: auto; display: block; margin: 36px 0 8px; }
+.idea { display: grid; grid-template-columns: 300px 1fr; gap: 40px; align-items: center; margin-top: 24px; }
+.idea img { width: 300px; }
+.idea b { color: #ece5d8; font-weight: 500; }
+.row { display: grid; gap: 24px; margin-top: 24px; }
+.three { grid-template-columns: 1.3fr 1fr 1fr; }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.sw { border-radius: 14px; height: 120px; padding: 14px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 12.5px; line-height: 1.5; }
+.sw b { font-size: 14px; }
+.lit { grid-column: span 4; height: 80px; background: linear-gradient(90deg, #7ee0c3, #f4c56a); color: #0f0e0d; } /* taste-skill-ignore: shows the brand's lit gradient itself */
+.type .big { font-size: 64px; font-weight: 800; letter-spacing: -.02em; line-height: 1; margin: 6px 0 14px; }
+.type .body { font-size: 17px; line-height: 1.55; color: #d9d1c4; }
+.sizes { display: flex; gap: 28px; align-items: flex-end; margin-top: 8px; }
+.sizes div { background: #141210; text-align: center; font-size: 12px; color: #8d857b; }
+.sizes img { display: block; margin: 0 auto 8px; }
+.space { position: relative; display: inline-block; padding: 30px; outline: 1px dashed #4a433e; margin-top: 8px; }
+.space img { height: 64px; display: block; outline: 1px dashed #4a433e; }
+.dont { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 4px; }
+.dont div { background: #1a1714; border-radius: 14px; padding: 18px 12px 12px; text-align: center; font-size: 12px; color: #8d857b; }
+.dont img { height: 44px; display: block; margin: 0 auto 12px; }
+.foot { background: #0f0e0d; margin-top: 28px; font-size: 13px; color: #8d857b; }
+</style>
+
+<div class="hero">
+  <div class="panel">
+    <img class="lockup" src="lockup-dark.svg" alt="">
+    <p>On dark backgrounds: cream outline, lit inside.</p>
+  </div>
+  <div class="panel light">
+    <img class="lockup" src="lockup-light.svg" alt="">
+    <p>On light backgrounds: ink outline, same light inside.</p>
+  </div>
+</div>
+
+<div class="panel idea">
+  <img src="symbol-dark.svg" alt="">
+  <div>
+    <h2>Turned off is not gone.</h2>
+    <p>Two identical bins on one shelf. <b>The one that is on</b> is lit inside and its label is empty: it is in use.
+      <b>The one that is off</b> is empty inside and keeps its label: Stockroom still knows what it is and where it is.
+      The two bins are inverses of each other, and the shelf is the catalog that holds them both.</p>
+  </div>
+</div>
+
+<div class="row three">
+  <div class="panel">
+    <h2>Charcoal, cream, one light.</h2>
+    <div class="swatches">
+      <div class="sw" style="background:#0f0e0d;border:1px solid #262220"><!-- taste-skill-ignore: a charcoal swatch needs an edge on charcoal --><b>Charcoal</b>#0f0e0d</div>
+      <div class="sw" style="background:#ece5d8;color:#1a1714"><b>Cream</b>#ece5d8</div>
+      <div class="sw" style="background:#1a1714;border:1px solid #262220"><!-- taste-skill-ignore: an ink swatch needs an edge on charcoal --><b>Ink</b>#1a1714</div>
+      <div class="sw" style="background:#8d857b;color:#0f0e0d"><b>Stone</b>#8d857b</div>
+      <div class="sw lit"><b>Lit</b>#7ee0c3 → #f4c56a · only for what is on</div>
+    </div>
+  </div>
+  <div class="panel type">
+    <h2>JetBrains Mono</h2><!-- taste-skill-ignore: names the brand typeface -->
+    <div class="big">stockroom</div>
+    <p class="body">ExtraBold for the wordmark and headlines. Regular for text, the same as the terminal it lives in.</p>
+  </div>
+  <div class="panel">
+    <h2>Below 32 px, the small cut.</h2>
+    <div class="sizes">
+      <div><img src="symbol-dark.svg" width="64">64</div>
+      <div><img src="symbol-dark.svg" width="32">32</div>
+      <div><img src="symbol-small-dark.svg" width="24">24</div>
+      <div><img src="symbol-small-dark.svg" width="16">16</div>
+    </div>
+    <p style="margin-top:18px">The small cut drops the lids and labels and thickens the walls.</p>
+  </div>
+</div>
+
+<div class="row" style="grid-template-columns:1fr 2fr">
+  <div class="panel">
+    <h2>One bin width around it.</h2>
+    <div class="space"><img src="lockup-dark.svg" alt=""></div>
+  </div>
+  <div class="panel">
+    <h2>Keep the bins as they are.</h2>
+    <div class="dont">
+      <div><img src="symbol-dark.svg" style="transform:scaleX(1.5)">stretch it</div>
+      <div><img src="symbol-dark.svg" style="filter:hue-rotate(160deg)">recolour the light</div>
+      <div><img src="symbol-dark.svg" style="transform:scaleX(-1)">swap the bins</div>
+      <div><img src="symbol-dark.svg" style="filter:drop-shadow(0 6px 10px #7ee0c3)"><!-- taste-skill-ignore: the "don't" example -->add effects</div>
+    </div>
+  </div>
+</div>
+<p class="foot">Files and rules: docs/brand/README.md · built by docs/brand/build.py</p>

@@ -102,7 +102,7 @@ const css = `* { box-sizing: border-box; margin: 0 } body { background: #0f1117;
 .bar { color: #8a909c; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid #262a33 }
 p { white-space: pre-wrap; word-break: break-word } .you { color: #fff; font-weight: 700 } .tool { color: #6cb6ff }
 .off { color: #ff8a65 } .hook { color: #8a909c } .say { color: #d6d9e0 } .on { color: #7ee0a3 }`;
-const browser = await pw.chromium.launch();
+const browser = await pw.chromium.launch({ executablePath: process.env.BROWSER || undefined }); // BROWSER=<Chromium-based browser>, e.g. Brave;
 const tab = await browser.newPage({ viewport: { width: 960, height: 400 } });
 await tab.setContent(`<style>${css}</style><div id="t"></div>`);
 let n = 0;
