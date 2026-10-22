@@ -80,7 +80,7 @@ test('4. by-function.md is a short index; each section has its own file with eve
   assert.ok(!index.includes('not an installed tool name'), 'alternatives live in the section files');
   assert.deepEqual(fs.readdirSync(path.join(outDir, 'by-function')).sort(), ['debug.md', 'diseno-web.md']);
   assert.match(read(path.join(outDir, 'by-function'), 'debug.md'), /`nope`.*not an installed tool name/);
-  assert.match(HOOK_LINE('/c', true), /grep the user's tool map .*Not for plain questions/);
+  assert.match(HOOK_LINE('/c', true), /grep the tool map .*Not for plain questions/);
 });
 
 test('4. tables before the first ## heading take the file title as their section', () => {

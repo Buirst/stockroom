@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 (2026-10-22)
+
+- The session line says that a tool marked "off: read <path>" in the map works now through that file.
+
 ## 0.3.2 (2026-10-22)
 
 - The map index (`by-function.md`) shows the SKILL.md path of a turned-off first tool on its own line. In the real

@@ -198,6 +198,6 @@ test('an unreadable config: the usual line plus the error sentence', () => {
 
 test('with a map, the line says an off tool works through its SKILL.md', () => {
   const line = HOOK_LINE(path.join('C:', 'Users', 'someone-with-a-long-name', '.claude', 'stockroom', 'catalog'), true);
-  assert.match(line, /even when the tool is off/);
+  assert.match(line, /"off: read <path>" tools work now through that file/);
   assert.ok(line.length <= 300, `${line.length} chars`);
 });
