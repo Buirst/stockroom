@@ -247,3 +247,11 @@ test('without protected names the plan is the same as before', () => {
   assert.deepEqual(b.off, a.off);
   assert.deepEqual(a.kept, []);
 });
+
+test("shelf 'usage': a tool installed less than \"days\" ago counts as used", () => {
+  const fresh = tools.map((t) => (t.plugin === 'quiet' || t.name === 'beatlab-x' ? { ...t, since: now - 2 * DAY } : t));
+  const r = planShelf({ tools: fresh, config: { ...base, shelf: 'usage' }, usage, now });
+  assert.deepEqual(offKeys(r), ['disabledMcpjsonServers/web', 'skillOverrides/idle']);
+  const old = tools.map((t) => (t.name === 'beatlab-x' ? { ...t, since: now - 40 * DAY } : t));
+  assert.ok(offKeys(planShelf({ tools: old, config: { ...base, shelf: 'usage' }, usage, now })).includes('skillOverrides/beatlab-x'));
+});

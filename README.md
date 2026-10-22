@@ -243,6 +243,7 @@ What the automatic shelf never turns off:
 - account skills synced from claude.ai and subagents, which have no switch of their own.
 
 Use counts come from your session transcripts (skills launched, subagents, MCP calls, `SKILL.md` reads) over `days`.
+Installing counts as a use: a plugin installed, or a personal skill added or edited, less than `days` ago stays on.
 The run starts from the folder of the session that triggers it, so it sees the project skills under that folder.
 
 ## What can be turned off

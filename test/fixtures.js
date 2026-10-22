@@ -3,9 +3,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+const LONG_AGO = new Date('2025-01-01');
 function put(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
+  // Fixture skills count as installed long ago, so the shelf's usage window sees them as unused.
+  if (file.endsWith('SKILL.md') || file.endsWith('.md')) fs.utimesSync(file, LONG_AGO, LONG_AGO);
 }
 
 const skill = (name, description, extra = '') =>

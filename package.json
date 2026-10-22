@@ -1,6 +1,6 @@
 {
   "name": "stockroom",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Install as many skills, plugins and MCP servers as you want. Claude keeps knowing what each one is for, without loading them all into every session.",
   "type": "module",
   "license": "MIT",

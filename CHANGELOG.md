@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2 (2026-10-22)
+
+- Installing counts as a use: with `"usage"` and the automatic shelf, a plugin installed (or a personal skill added or
+  edited) less than `days` ago is never turned off as unused. Before, a tool installed today went off in the next daily run.
+
 ## 0.4.1 (2026-10-22)
 
 - The one-time reminder asks Claude to read the SKILL.md of the tool the map names, not only to grep the map. In
