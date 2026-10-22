@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 (2026-10-22)
+
+- The map index (`by-function.md`) shows the SKILL.md path of a turned-off first tool on its own line. In the real
+  test Claude only grepped the index, never the section files, so the 0.3.1 paths were out of its sight.
+
 ## 0.3.1 (2026-10-22)
 
 - The map index sections give each skill's SKILL.md path, and the session line says a tool works through its SKILL.md

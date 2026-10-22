@@ -185,3 +185,15 @@ test('by-function section files give the SKILL.md path of each skill, so an off 
   writeCatalog({ tools, cases: [{ file: 'm', section: 'Debug', title: 'Find a bug', tools: ['debugging'], why: '' }], outDir: out });
   assert.match(sections(out).join('\n'), /- `debugging`: on · personal · skills\.md · SKILL\.md: \/h\/\.claude\/skills\/debugging\/SKILL\.md/);
 });
+
+test('by-function index: an off skill shows where its SKILL.md is, an on skill does not', () => {
+  const out = tmp();
+  const cases = [
+    { file: 'm', section: 'Video', title: 'Cut a video', tools: ['video:cut'], why: '' },
+    { file: 'm', section: 'Debug', title: 'Find a bug', tools: ['debugging'], why: '' },
+  ];
+  writeCatalog({ tools, cases, outDir: out });
+  const index = read(out, 'by-function.md');
+  assert.match(index, /- Cut a video → `video:cut` \(off: read \/p\/video\/skills\/cut\/SKILL\.md\)/);
+  assert.match(index, /- Find a bug → `debugging`$/m);
+});
