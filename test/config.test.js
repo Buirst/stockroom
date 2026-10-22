@@ -19,7 +19,7 @@ test('defaults when there is no config file', () => {
   const h = home();
   assert.deepEqual(loadConfig(h), {
     shelf: null, days: 30, list: [], neverOff: [], mapFiles: [], readMcp: false,
-    keep: 1, unmapped: 'keep', alwaysOff: [], sections: {}, offAs: 'off',
+    keep: 1, unmapped: 'keep', alwaysOff: [], sections: {}, offAs: 'off', projects: {},
     catalogDir: path.join(h, '.claude', 'stockroom', 'catalog'),
   });
 });

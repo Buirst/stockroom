@@ -163,3 +163,19 @@ test('by-function lines carry the tool source when known', () => {
   writeCatalog({ tools: withSource, cases: [{ file: 'm', section: 'S', title: 'T', tools: ['debugging'], why: '' }], outDir });
   assert.match(byFunction(outDir), /`debugging`: on · personal · skills\.md · source: https:\/\/github\.com\/emil\/skills/);
 });
+
+test('rules: a tool entry lists its rules, and its by-function row too; no rules leaves output unchanged', () => {
+  const plain = tmp();
+  const cases = [{ file: 'm', section: 'Debug', title: 'Find a bug', tools: ['debugging'], why: '' }];
+  writeCatalog({ tools, cases, outDir: plain });
+  const ruled = tmp();
+  const rulesByTool = { debugging: ['(critical) Never on production data', 'Write the failing test first'] };
+  writeCatalog({ tools, cases, outDir: ruled, rulesByTool });
+  assert.match(read(ruled, 'skills.md'), /### debugging\n(.*\n)*?- rules: \(critical\) Never on production data\n- rules: Write the failing test first/);
+  assert.match(sections(ruled).join('\n'), /- rules for `debugging`: \(critical\) Never on production data; Write the failing test first/);
+  const empty = tmp();
+  writeCatalog({ tools, cases, outDir: empty, rulesByTool: {} });
+  assert.equal(read(empty, 'skills.md'), read(plain, 'skills.md'));
+  assert.equal(byFunction(empty), byFunction(plain));
+  assert.doesNotMatch(read(plain, 'skills.md'), /- rules:/);
+});

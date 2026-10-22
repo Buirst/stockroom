@@ -8,10 +8,15 @@ import { discoverTools, findOnPath } from '../lib/tools.js';
 import { listingChars, listedSkills, toolUsage } from '../lib/measure.js';
 import { checkNode, loadConfig } from '../lib/config.js';
 import { planShelf, applyShelf, undoShelf, projectConflicts } from '../lib/shelf.js';
-import { parseMap, checkMap, externalTools, resolveRow, mapIndex } from '../lib/map.js';
+import { parseMap, parseRules, checkMap, externalTools, resolveRow, mapIndex } from '../lib/map.js';
+import { buildRules, planRules, writeRules, removeRules, targets } from '../lib/rules.js';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 import { toolOrigin, sourceLine, readSource, sourcePath } from '../lib/sources.js';
 import { readMcpAll, readableServers, serverKey } from '../lib/mcp.js';
 import { gradeE2E } from '../lib/e2e.js';
+import { report } from '../lib/report.js';
 import { runHook, regenerate, expandMaps } from '../lib/hook.js';
 
 // SessionStart hook: must never fail the session, so it runs before anything that can exit.
@@ -114,6 +119,48 @@ function check() {
     if (of.length) console.log(`  ${k}: ${of.length}${flag('all') ? `: ${of.map((t) => t.name).join(', ')}` : ''}`);
   }
   if (!flag('all')) console.log('Add --all to list their names.');
+  const { built } = rulesNow();
+  if (built.warnings.length) console.log(`\nRules to fix in the map (${built.warnings.length}):\n  ${built.warnings.join('\n  ')}`);
+}
+
+// The rules as the map says now, and a hash that changes when the map or the projects change.
+function rulesNow() {
+  const c = cfg();
+  const mapFiles = expandMaps(c.mapFiles, home);
+  const texts = mapFiles.map((f) => fs.readFileSync(f, 'utf8'));
+  const tools = discoverTools({ home, workRoot: cwd });
+  const built = buildRules({
+    rules: mapFiles.flatMap((f, i) => parseRules(texts[i], f)), cases: mapFiles.flatMap((f, i) => parseMap(texts[i], f)), tools, config: c,
+  }, mapFiles);
+  const hash = crypto.createHash('sha256').update(JSON.stringify([texts, c.projects])).digest('hex');
+  return { built, hash, mapFiles };
+}
+
+const rulesPlanPath = path.join(stateDir, 'rules-plan.json');
+
+function rulesPlan() {
+  const { built, hash } = rulesNow();
+  const plan = planRules({ home, built });
+  console.log(`Critical rules: ${built.criticalCount}; tools with rules shown on use: ${Object.keys(built.index.rules).length}.`);
+  for (const w of plan.write) console.log(`  write ${w.path} (${w.bytes} bytes)`);
+  for (const r of plan.remove) console.log(`  remove ${r} (no longer in the map)`);
+  for (const c of plan.conflicts) console.log(`  conflict: ${c} exists and was not written by Stockroom; it will not be touched`);
+  if (built.warnings.length) console.log(`Warnings:\n  ${built.warnings.join('\n  ')}`);
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(rulesPlanPath, JSON.stringify({ at: new Date().toISOString(), hash }));
+  console.log('\nNothing has been changed. To apply: "stockroom rules apply" ("stockroom undo" removes the files).');
+}
+
+function rulesApply() {
+  if (!fs.existsSync(rulesPlanPath)) throw new Error('No rules plan found: run "stockroom rules plan" first.');
+  const { built, hash, mapFiles } = rulesNow();
+  if (JSON.parse(fs.readFileSync(rulesPlanPath, 'utf8')).hash !== hash) {
+    throw new Error('Not applied: the map changed since the plan; run "stockroom rules plan" again and check it.');
+  }
+  const { written } = writeRules({ home, built, mapFiles });
+  fs.rmSync(rulesPlanPath);
+  console.log(`Wrote ${written.length} files:\n  ${written.join('\n  ')}`);
+  console.log('Claude Code loads them from the next session. The session-start hook keeps them in step with the map.');
 }
 
 async function catalog() {
@@ -133,7 +180,7 @@ async function catalog() {
     }
   }
   const { tools } = regenerate({ home, workRoot: cwd, catalogDir: c.catalogDir, mapFiles: expandMaps(c.mapFiles, home),
-    onPath: (n) => findOnPath(n) });
+    onPath: (n) => findOnPath(n), config: c });
   console.log(`Catalog written to ${c.catalogDir}: ${tools.length} tools.`);
 }
 
@@ -150,7 +197,7 @@ function shelfPlan() {
     ? toolUsage({ home, days: Math.max(c.days, ...Object.values(c.sections).map((s) => s.days || 0)) }) : new Map();
   const cases = expandMaps(c.mapFiles, home).flatMap((f) => parseMap(fs.readFileSync(f, 'utf8'), f));
   const applied = readJson(path.join(stateDir, 'applied.json'), []);
-  const r = planShelf({ tools, config: c, usage, cases, applied });
+  const r = planShelf({ tools, config: c, usage, cases, applied, protectedNames: rulesNow().built.protected });
   fs.mkdirSync(stateDir, { recursive: true });
   const brief = ({ tool, via, key, value }) => ({ via, key, ...(value ? { value } : {}), kind: tool.kind, name: tool.name });
   fs.writeFileSync(planPath, JSON.stringify({
@@ -164,6 +211,10 @@ function shelfPlan() {
   if (r.on.length) {
     console.log(`\nWould turn back on (${r.on.length}), turned off earlier by Stockroom:`);
     for (const o of r.on) console.log(`  ${o.via}: ${o.key}  (${o.tool.kind} ${o.tool.name}: ${o.reason})`);
+  }
+  if (r.kept.length) {
+    console.log(`\nKept on (${r.kept.length}), named by a critical rule in your map:`);
+    for (const k of r.kept) console.log(`  ${k.tool.kind} ${k.tool.name}`);
   }
   if (r.cannot.length) {
     console.log(`\nStay on (${r.cannot.length}):`);
@@ -191,9 +242,9 @@ function shelfApply() {
 
 function undo() {
   const { restored } = undoShelf({ settingsPath, stateDir });
-  console.log(restored.length
-    ? `Undid ${restored.length} changes made by Stockroom:\n  ${restored.map((r) => `${r.via}: ${r.key}`).join('\n  ')}`
-    : 'Nothing to undo.');
+  const { removed } = removeRules({ home });
+  const lines = [...restored.map((r) => `${r.via}: ${r.key}`), ...removed.map((f) => `removed ${f}`)];
+  console.log(lines.length ? `Undid ${lines.length} changes made by Stockroom:\n  ${lines.join('\n  ')}` : 'Nothing to undo.');
 }
 
 function mapInit() {
@@ -308,14 +359,69 @@ function e2eGrade() {
   process.exitCode = r.pass ? 0 : 1;
 }
 
+// One line per check; exit 1 if any problem. Catches a Claude Code or plugin change that breaks what Stockroom expects.
+function doctor() {
+  const rows = [];
+  const ok = (what) => rows.push(`ok       ${what}`);
+  const problem = (what) => rows.push(`problem: ${what}`);
+  let c;
+  try { c = cfg(); ok('config.json is valid'); } catch (e) { problem(e.message); }
+
+  const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  const hooks = readJson(path.join(root, 'hooks', 'hooks.json'), {}).hooks || {};
+  const pre = (hooks.PreToolUse || []).map((g) => g.matcher);
+  if (hooks.SessionStart?.length && pre.includes('Skill') && pre.includes('Read')) ok('hooks registered (SessionStart, PreToolUse on Skill and SKILL.md reads)');
+  else problem(`hooks.json in ${root} lacks SessionStart or the PreToolUse handlers; reinstall the plugin`);
+
+  if (c) {
+    const { built } = rulesNow();
+    if (fs.existsSync(path.join(stateDir, 'rules-applied.json'))) {
+      const stale = [...targets(home, built)].filter(([p, text]) => !fs.existsSync(p) || fs.readFileSync(p, 'utf8') !== text);
+      if (stale.length) for (const [p] of stale) problem(`${p} differs from the map; run "stockroom rules plan" then "rules apply", or edit the map`);
+      else ok('generated rules match the map');
+    } else ok('no generated rules (run "stockroom rules plan" to start)');
+    for (const [name, globs] of Object.entries(c.projects)) {
+      // shortcut: checks the folder before the first wildcard exists and is not empty; enough for "Folder/**" globs.
+      const found = globs.some((g) => {
+        const dir = path.join(cwd, g.split(/[*?[{]/)[0]);
+        try { return fs.statSync(dir).isDirectory() ? fs.readdirSync(dir).length > 0 : true; } catch { return false; }
+      });
+      if (found) ok(`project "${name}" matches files`);
+      else problem(`project "${name}" matches no files under ${cwd}; sessions must start in the folder its paths are relative to`);
+    }
+  }
+
+  const t0 = Date.now();
+  spawnSync(process.execPath, [path.join(root, 'bin', 'pretool.js')], { input: '{}' });
+  ok(`PreToolUse hook start-up: ${Date.now() - t0} ms`);
+  console.log(rows.join('\n'));
+  if (rows.some((r) => r.startsWith('problem'))) process.exitCode = 1;
+}
+
+function reportCmd() {
+  const c = cfg();
+  const r = report({ home, days: Number(option('days')[0] || 7), mapFiles: expandMaps(c.mapFiles, home), catalogDir: c.catalogDir });
+  if (flag('json')) { console.log(JSON.stringify(r, null, 2)); return; }
+  const pct = r.totals.consulted ? ` (${Math.round((100 * r.totals.followed) / r.totals.consulted)} %)` : '';
+  console.log(`Map reads: ${r.totals.reads}, followed by a tool they named: ${r.totals.readsFollowed}.`);
+  console.log(`Map rows consulted: ${r.totals.consulted}, followed: ${r.totals.followed}${pct}.`);
+  console.log(`Loaded in every session by Stockroom: ${r.alwaysLoadedBytes} bytes (critical rules file + hook line).`);
+  for (const s of r.sessions.filter((x) => x.consulted.length || x.injected.length)) {
+    const shown = s.injected.map((i) => `${i.tool} ×${i.count}`).join(', ');
+    console.log(`  ${s.id}: consulted ${s.consulted.length}, followed ${s.consulted.filter((x) => x.followed).length}`
+      + (shown ? `; rules shown for ${shown}` : ''));
+  }
+}
+
 const commands = {
-  status, check, catalog, undo, usage, 'e2e-grade': e2eGrade,
+  status, check, catalog, undo, usage, doctor, 'e2e-grade': e2eGrade, report: reportCmd,
   shelf: () => ({ plan: shelfPlan, apply: shelfApply }[args[0]] || fail)(),
   map: () => ({ init: mapInit, 'draft-data': mapDraftData, index: mapIndexCmd }[args[0]] || fail)(),
+  rules: () => ({ plan: rulesPlan, apply: rulesApply }[args[0]] || fail)(),
 };
 function fail() {
-  console.error('Usage: stockroom <status | check [--all] | catalog [--read-mcp] | shelf plan | shelf apply | undo |'
-    + ' map init [--out <dir>] | map draft-data [--group <name>] | map index [--out <file>] | usage [--days N] | e2e-grade <file> --expect <skill|none>>');
+  console.error('Usage: stockroom <status | check [--all] | catalog [--read-mcp] | shelf plan | shelf apply | rules plan | rules apply | undo |'
+    + ' map init [--out <dir>] | map draft-data [--group <name>] | map index [--out <file>] | usage [--days N] | report [--days N] [--json] | doctor | e2e-grade <file> --expect <skill|none>>');
   process.exit(2);
 }
 if (!commands[cmd]) fail();

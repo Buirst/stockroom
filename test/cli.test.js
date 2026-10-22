@@ -190,3 +190,105 @@ test('map index writes the short index and never overwrites a file it did not wr
   assert.equal(again.status, 1);
   assert.equal(fs.readFileSync(out, 'utf8'), 'my notes');
 });
+
+function ruledHome() {
+  const h = makeToolsHome();
+  const map = path.join(h.home, 'map.md');
+  fs.writeFileSync(map, '# Map\n\n| Tool | Rule | Level |\n|---|---|---|\n| `debugging` | Never on production data | critical |\n| `quiet` | Keep it short | |\n');
+  config(h.home, { mapFiles: [map] });
+  return { ...h, map };
+}
+const rulesFolder = (home) => path.join(home, '.claude', 'rules');
+
+test('rules apply without a plan is an error', () => {
+  const { home, workRoot } = ruledHome();
+  const r = cli(home, workRoot, 'rules', 'apply');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /run "stockroom rules plan" first/);
+});
+
+test('rules plan, apply, undo round trip; plan changes nothing', () => {
+  const { home, workRoot } = ruledHome();
+  const p = cli(home, workRoot, 'rules', 'plan');
+  assert.equal(p.status, 0, p.stderr);
+  assert.match(p.stdout, /stockroom-critical\.md \(\d+ bytes\)/);
+  assert.ok(!fs.existsSync(rulesFolder(home)));
+  const a = cli(home, workRoot, 'rules', 'apply');
+  assert.equal(a.status, 0, a.stderr);
+  assert.match(fs.readFileSync(path.join(rulesFolder(home), 'stockroom-critical.md'), 'utf8'), /Never on production data/);
+  const u = cli(home, workRoot, 'undo');
+  assert.match(u.stdout, /stockroom-critical\.md/);
+  assert.deepEqual(fs.readdirSync(rulesFolder(home)), []);
+});
+
+test('rules apply refuses when the map changed since the plan', () => {
+  const { home, workRoot, map } = ruledHome();
+  cli(home, workRoot, 'rules', 'plan');
+  fs.appendFileSync(map, '| `quiet` | Another rule | |\n');
+  const a = cli(home, workRoot, 'rules', 'apply');
+  assert.equal(a.status, 1);
+  assert.match(a.stderr, /the map changed since the plan/);
+});
+
+test('check prints rule warnings naming the map file', () => {
+  const { home, workRoot, map } = ruledHome();
+  fs.appendFileSync(map, '| `ghost` | Not installed | |\n');
+  const r = cli(home, workRoot, 'check');
+  assert.match(r.stdout, /map\.md · Map: "ghost" matches no installed tool/);
+});
+
+test('shelf plan keeps on what a critical rule names, in a "Kept on" block', () => {
+  const { home, workRoot, map } = ruledHome();
+  config(home, { mapFiles: [map], shelf: 'usage', days: 30 });
+  const r = cli(home, workRoot, 'shelf', 'plan');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Kept on \(1\), named by a critical rule in your map:\n  skill debugging/);
+  assert.doesNotMatch(r.stdout.split('Kept on')[0], /skillOverrides: debugging/);
+});
+
+test('report prints totals and --json gives the same numbers', () => {
+  const { home, workRoot, map } = ruledHome();
+  const proj = path.join(home, '.claude', 'projects', 'p');
+  fs.mkdirSync(proj, { recursive: true });
+  fs.writeFileSync(path.join(proj, 's.jsonl'), [
+    JSON.stringify({ type: 'assistant', timestamp: new Date().toISOString(), message: { content: [{ type: 'tool_use', id: 'a', name: 'Read', input: { file_path: map } }] } }),
+    JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), message: { content: [{ type: 'tool_result', tool_use_id: 'a', content: '| Find a bug | `debugging` | x |' }] } }),
+  ].join('\n'));
+  fs.appendFileSync(map, '\n| Job | Tool | Why |\n|---|---|---|\n| Find a bug | `debugging` | x |\n');
+  const r = cli(home, workRoot, 'report', '--days', '7');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Map rows consulted: 1, followed: 0/);
+  const j = JSON.parse(cli(home, workRoot, 'report', '--json').stdout);
+  assert.deepEqual(j.totals, { consulted: 1, followed: 0, reads: 1, readsFollowed: 0 });
+  assert.match(r.stdout, /Map reads: 1, followed by a tool they named: 0/);
+});
+
+const applied = (h) => { cli(h.home, h.workRoot, 'rules', 'plan'); return cli(h.home, h.workRoot, 'rules', 'apply'); };
+
+test('doctor: a healthy setup is all ok and exits 0', () => {
+  const h = ruledHome();
+  assert.equal(applied(h).status, 0);
+  const r = cli(h.home, h.workRoot, 'doctor');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /problem/);
+  assert.match(r.stdout, /ok +hooks registered/);
+  assert.match(r.stdout, /ok +generated rules match the map/);
+});
+
+test('doctor: a hand-edited generated file is a problem', () => {
+  const h = ruledHome();
+  applied(h);
+  const f = path.join(rulesFolder(h.home), 'stockroom-critical.md');
+  fs.appendFileSync(f, '\n- added by hand\n');
+  const r = cli(h.home, h.workRoot, 'doctor');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /problem: .*stockroom-critical\.md differs from the map; run "stockroom rules plan" then "rules apply", or edit the map/);
+});
+
+test('doctor: a project whose paths match no file is a problem', () => {
+  const h = ruledHome();
+  config(h.home, { mapFiles: [h.map], projects: { Games: ['games/**'] } });
+  const r = cli(h.home, h.workRoot, 'doctor');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /problem: project "Games" matches no files under /);
+});

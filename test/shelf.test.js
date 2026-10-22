@@ -35,7 +35,7 @@ const usage = new Map([['used', now - 2 * DAY], ['busy:b', now - 3 * DAY], ['mcp
 const offKeys = (r) => r.off.map((o) => `${o.via}/${o.key}`).sort();
 
 test('shelf null turns nothing off', () => {
-  assert.deepEqual(planShelf({ tools, config: base, usage, now }), { off: [], on: [], cannot: [] });
+  assert.deepEqual(planShelf({ tools, config: base, usage, now }), { off: [], on: [], cannot: [], kept: [] });
 });
 
 test("shelf 'none' turns off everything except neverOff; plugin items go with their plugin", () => {
@@ -230,4 +230,20 @@ test("alwaysOff turns off in any mode; neverOff beats it", () => {
 
 test("shelf 'map' without a map is an error", () => {
   assert.throws(() => planShelf({ tools: mapTools, cases: [], now, config: { ...base, shelf: 'map' } }), /map/);
+});
+
+test('protected tools: a critical rule keeps them on, listed under kept; a plugin with a protected item stays on', () => {
+  const r = planShelf({ tools, config: { ...base, shelf: 'usage' }, usage, now, protectedNames: new Set(['idle', 'quiet:a']) });
+  const off = r.off.map((o) => o.tool.name);
+  assert.ok(!off.includes('idle'));
+  assert.ok(!off.includes('quiet'), 'plugin "quiet" holds the protected skill');
+  assert.deepEqual(r.kept.map((k) => [k.tool.name, k.reason]).sort(),
+    [['idle', 'required by a critical rule'], ['quiet', 'required by a critical rule']]);
+});
+
+test('without protected names the plan is the same as before', () => {
+  const a = planShelf({ tools, config: { ...base, shelf: 'usage' }, usage, now });
+  const b = planShelf({ tools, config: { ...base, shelf: 'usage' }, usage, now, protectedNames: new Set() });
+  assert.deepEqual(b.off, a.off);
+  assert.deepEqual(a.kept, []);
 });

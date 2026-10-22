@@ -1,0 +1,141 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { parseMap, parseRules } from '../lib/map.js';
+import { buildRules, planRules, writeRules, removeRules, MARKER_START } from '../lib/rules.js';
+
+const MAP = `# Map
+
+| Tool | Rule | Level |
+|---|---|---|
+| \`adobe\` | Uploads files to the cloud: never client documents | critical |
+| \`beatlab-*\` | One credit per call: warn before a batch | on use |
+| * | Ask before publishing anything | critical |
+| | A general rule with no tool | on use |
+| \`ghost\` | Not installed | on use |
+
+## Company
+Project: Empresa
+
+| Job | Tool | Why |
+|---|---|---|
+| Pricing | \`pricing\` | Three tiers |
+
+| Tool | Rule | Level |
+|---|---|---|
+| \`taste-skill\` | Second opinion before showing a design | critical |
+| \`pricing\` | Check the client's currency | on use |
+| \`pricing\` | Unknown project rule | |
+`.replace('| `pricing` | Unknown project rule | |', '| `pricing` | Unknown project rule | on use |');
+
+const tools = [
+  { kind: 'skill', name: 'adobe', origin: 'personal', path: 'C:\\Users\\X\\.claude\\skills\\adobe\\SKILL.md' },
+  { kind: 'skill', name: 'beatlab-analytics', origin: 'personal', path: '/home/x/.claude/skills/beatlab-analytics/SKILL.md' },
+  { kind: 'skill', name: 'beatlab-anr', origin: 'personal', path: '/home/x/.claude/skills/beatlab-anr/SKILL.md' },
+  { kind: 'skill', name: 'taste-skill', origin: 'personal', path: '/home/x/.claude/skills/taste-skill/SKILL.md' },
+  { kind: 'skill', name: 'pricing', origin: 'project', path: '/w/Empresa/.claude/skills/pricing/SKILL.md' },
+];
+const config = { projects: { Empresa: ['Empresa/**'] }, catalogDir: '/cat' };
+const build = (map = MAP, cfg = config) => buildRules({ rules: parseRules(map, 'm.md'), cases: parseMap(map, 'm.md'), tools, config: cfg });
+
+test('critical file: marker first, every general critical rule', () => {
+  const b = build();
+  assert.ok(b.critical.startsWith(MARKER_START));
+  assert.match(b.critical, /`adobe`: Uploads files to the cloud: never client documents/);
+  assert.match(b.critical, /- Ask before publishing anything/);
+  assert.doesNotMatch(b.critical, /One credit per call/);
+  assert.doesNotMatch(b.critical, /Second opinion/);
+});
+
+test('project file: paths frontmatter on line 1, marker right after it, its critical rules and jobs', () => {
+  const text = build().projects.get('Empresa');
+  assert.ok(text.startsWith('---\npaths:\n  - "Empresa/**"\n---\n' + MARKER_START));
+  assert.match(text, /Second opinion before showing a design/);
+  assert.match(text, /Pricing → `pricing`/);
+  assert.doesNotMatch(text, /Check the client's currency/);
+});
+
+test('on-use rules go only to the index, patterns expanded to installed names', () => {
+  const b = build();
+  assert.deepEqual(b.index.rules['beatlab-analytics'], ['One credit per call: warn before a batch']);
+  assert.deepEqual(b.index.rules['beatlab-anr'], ['One credit per call: warn before a batch']);
+  assert.ok(b.index.rules.pricing.includes("Check the client's currency"));
+  assert.equal(b.index.paths['c:/users/x/.claude/skills/adobe/skill.md'], undefined, 'adobe has no on-use rule');
+  assert.equal(b.index.paths['/home/x/.claude/skills/beatlab-anr/skill.md'], 'beatlab-anr');
+});
+
+test('critical rules protect their tools; counts and warnings', () => {
+  const b = build();
+  assert.deepEqual([...b.protected].sort(), ['adobe', 'taste-skill']);
+  assert.equal(b.criticalCount, 3);
+  assert.ok(b.warnings.some((w) => /no tool must be critical/.test(w)));
+  assert.ok(b.warnings.some((w) => /"ghost" matches no installed tool/.test(w)));
+});
+
+test('a rule for a project not in config is skipped with a warning', () => {
+  const b = build(MAP, { projects: {}, catalogDir: '/cat' });
+  assert.equal(b.projects.size, 0);
+  assert.ok(b.warnings.some((w) => /unknown project "Empresa"/.test(w)));
+  assert.ok(!b.protected.has('taste-skill'));
+});
+
+test('critical file over 4096 bytes warns naming the longest rule', () => {
+  const long = `| \`adobe\` | ${'x'.repeat(4200)} | critical |`;
+  const b = build(MAP.replace('| `adobe` | Uploads files to the cloud: never client documents | critical |', long));
+  assert.ok(b.warnings.some((w) => /critical rules: \d+ bytes, over 4096/.test(w) && w.includes('adobe')));
+});
+
+const freshHome = () => fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-rules-'));
+const rulesDir = (h) => path.join(h, '.claude', 'rules');
+
+test('planRules: an unmarked file with our name is a conflict and writeRules refuses', () => {
+  const h = freshHome();
+  fs.mkdirSync(rulesDir(h), { recursive: true });
+  fs.writeFileSync(path.join(rulesDir(h), 'stockroom-critical.md'), '# my own notes\n');
+  const b = build();
+  assert.deepEqual(planRules({ home: h, built: b }).conflicts, [path.join(rulesDir(h), 'stockroom-critical.md')]);
+  assert.throws(() => writeRules({ home: h, built: b, mapFiles: ['m.md'] }), /not generated by Stockroom/);
+  assert.equal(fs.readFileSync(path.join(rulesDir(h), 'stockroom-critical.md'), 'utf8'), '# my own notes\n');
+});
+
+test('writeRules then removeRules leaves the rules folder as it was', () => {
+  const h = freshHome();
+  fs.mkdirSync(rulesDir(h), { recursive: true });
+  fs.writeFileSync(path.join(rulesDir(h), 'mine.md'), 'mine');
+  const b = build();
+  const plan = planRules({ home: h, built: b });
+  assert.deepEqual(plan.write.map((w) => path.basename(w.path)).sort(), ['stockroom-critical.md', 'stockroom-empresa.md']);
+  writeRules({ home: h, built: b, mapFiles: ['m.md'] });
+  const state = path.join(h, '.claude', 'stockroom');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(state, 'rules-applied.json'), 'utf8')).criticalCount, 3);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(state, 'rules-index.json'), 'utf8')).rules.pricing.length, 2);
+  removeRules({ home: h });
+  assert.deepEqual(fs.readdirSync(rulesDir(h)), ['mine.md']);
+});
+
+test('removeRules keeps a generated file the user took over (marker removed)', () => {
+  const h = freshHome();
+  writeRules({ home: h, built: build(), mapFiles: ['m.md'] });
+  fs.writeFileSync(path.join(rulesDir(h), 'stockroom-critical.md'), 'edited by hand');
+  removeRules({ home: h });
+  assert.deepEqual(fs.readdirSync(rulesDir(h)), ['stockroom-critical.md']);
+});
+
+test('an on-use rule for an MCP server warns: MCP calls are not hooked', () => {
+  const map = '| Tool | Rule | Level |\n|---|---|---|\n| MCP `adobe` | Uploads to the cloud | on use |\n';
+  const b = buildRules({ rules: parseRules(map, 'm.md'), cases: [], tools: [...tools, { kind: 'mcp-server', name: 'adobe', origin: 'user-mcp' }], config });
+  assert.ok(b.warnings.some((w) => /MCP calls are not hooked/.test(w) && w.includes('adobe')));
+});
+
+test('writing the same rules twice makes no backup and leaves files alone', () => {
+  const h = freshHome();
+  const b = build();
+  writeRules({ home: h, built: b, mapFiles: ['m.md'] });
+  writeRules({ home: h, built: b, mapFiles: ['m.md'] });
+  const backups = path.join(h, '.claude', 'stockroom', 'backups');
+  assert.deepEqual(fs.existsSync(backups) ? fs.readdirSync(backups) : [], []);
+  writeRules({ home: h, built: build(MAP.replace('never client documents', 'never client files')), mapFiles: ['m.md'] });
+  assert.equal(fs.readdirSync(backups).length, 1, 'a real change is backed up');
+});

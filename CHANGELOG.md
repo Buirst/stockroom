@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0 (2026-10-22)
+
+Tool rules and projects, from the map.
+
+- Rule tables in the map (`Tool | Rule | Level | Project`, English or Spanish headers). `rules plan` / `rules apply`
+  write `~/.claude/rules/stockroom-critical.md` (always loaded) and one `stockroom-<project>.md` per project, loaded
+  by path. Files Stockroom did not write are never touched; `undo` removes the ones it wrote.
+- On-use rules: a `PreToolUse` hook shows a skill's rules to Claude when it launches the skill or reads its
+  `SKILL.md`. MCP calls are not hooked (cost measured: one Node start-up per call).
+- The session-start hook keeps the rule files in step with the map, keeps the previous files if an edit would drop a
+  critical rule, and mentions any internal error in its line (details in `errors.log`, which replaces `hook.log`).
+- The shelf never turns off a tool named by a critical rule (`Kept on` in `shelf plan`).
+- `report`: whether the map is used (map reads followed by a tool they named; rows consulted and followed; rules
+  shown on use; bytes loaded every session).
+- `doctor`: health check for hooks, generated rules and project paths.
+- The catalog shows each tool's rules; `check` warns about rule sizes, unknown projects and MCP rules.
+- The panel and map skills follow fixed steps: plan, explicit yes, apply.
+
 ## 0.2.0 (2026-10-21)
 
 First public release.

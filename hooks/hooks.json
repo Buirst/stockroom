@@ -10,6 +10,20 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/pretool.js\"", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          { "type": "command", "if": "Read(**/SKILL.md)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/pretool.js\"", "timeout": 5 }
+        ]
+      }
     ]
   }
 }

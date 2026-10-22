@@ -16,3 +16,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: node --test
+      - name: No personal paths in shipped files
+        if: runner.os == 'Linux'
+        run: "! git grep -nE '([A-Za-z]:.{1,2}Users.|/Users/[a-z]|/home/[a-z])' -- ':!test/**' ':!docs/plans/**' ':!publish.sh'"

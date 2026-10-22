@@ -8,6 +8,9 @@ import assert from 'node:assert/strict';
 import { runHook, HOOK_LINE } from '../lib/hook.js';
 import { fingerprint } from '../lib/fingerprint.js';
 import { makeToolsHome } from './fixtures.js';
+import { parseMap, parseRules } from '../lib/map.js';
+import { buildRules, writeRules } from '../lib/rules.js';
+import { discoverTools } from '../lib/tools.js';
 
 const bin = fileURLToPath(new URL('../bin/stockroom.js', import.meta.url));
 const stateDir = (home) => path.join(home, '.claude', 'stockroom');
@@ -47,15 +50,18 @@ test('first run writes the catalog and prints one line of context', () => {
   assert.ok(fs.existsSync(path.join(catalog(home), 'skills.md')));
 });
 
-test('unchanged: no rewrite and under 300 ms with 500+ tools', () => {
+// Node's start-up alone swings with the machine's load (the other test files spawn processes in parallel), so the
+// budget is what the hook adds over an empty Node: under 200 ms, best of 3 (about 100 ms on the author's laptop).
+test('unchanged: no rewrite, and fast with 500+ tools', () => {
   const { home, workRoot } = bigHome();
   assert.equal(spawnHook(home, workRoot).status, 0);
   const mtime = fs.statSync(path.join(catalog(home), 'skills.md')).mtimeMs;
   const runs = [1, 2, 3].map(() => spawnHook(home, workRoot));
   for (const r of runs) assert.equal(r.status, 0, r.stderr);
   assert.equal(fs.statSync(path.join(catalog(home), 'skills.md')).mtimeMs, mtime);
+  const empty = Math.min(...[1, 2, 3].map(() => { const t0 = Date.now(); spawnSync(process.execPath, ['-e', '']); return Date.now() - t0; }));
   const best = Math.min(...runs.map((r) => r.ms));
-  assert.ok(best < 300, `best of 3: ${best} ms`);
+  assert.ok(best - empty < 200, `best of 3: ${best} ms, empty node ${empty} ms`);
 });
 
 test('a change in what is installed rewrites the catalog', () => {
@@ -98,8 +104,9 @@ test('an error is logged and exit code is 0; no catalog where configured means n
   fs.writeFileSync(path.join(stateDir(home), 'config.json'), JSON.stringify({ catalogDir: path.join(blocker, 'catalog') }));
   const r = spawnHook(home, workRoot);
   assert.equal(r.status, 0);
-  assert.match(fs.readFileSync(path.join(stateDir(home), 'hook.log'), 'utf8'), /\S/);
-  assert.equal(r.stdout, '', 'no catalog at the configured place: stay silent');
+  assert.match(fs.readFileSync(path.join(stateDir(home), 'errors.log'), 'utf8'), /\S/);
+  const said = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+  assert.match(said, /^Stockroom: an internal error occurred; details: .*errors\.log\.$/, 'no catalog: only the error');
 });
 
 test('fingerprint changes with settings, plugins, skill folders and maps; not with time alone', () => {
@@ -133,4 +140,58 @@ test('runHook names by-function.md when the user has a map', () => {
   fs.writeFileSync(path.join(home, '.claude', 'stockroom', 'config.json'), JSON.stringify({ mapFiles: [map] }));
   const out = JSON.parse(runHook({ home, input: { cwd: workRoot } }));
   assert.match(out.hookSpecificOutput.additionalContext, /by-function\.md/);
+});
+
+// Rules: a home with a map holding two critical rules and one on-use rule, applied once.
+const RULE_MAP = '# Map\n\n| Tool | Rule | Level |\n|---|---|---|\n| `debugging` | Never on production data | critical |\n'
+  + '| * | Ask before publishing | critical |\n| `quiet` | Keep it short | |\n';
+function ruledHome({ apply = true } = {}) {
+  const { home, workRoot } = makeToolsHome();
+  const map = path.join(home, 'map.md');
+  fs.writeFileSync(map, RULE_MAP);
+  fs.mkdirSync(stateDir(home), { recursive: true });
+  fs.writeFileSync(path.join(stateDir(home), 'config.json'), JSON.stringify({ mapFiles: [map] }));
+  if (apply) {
+    const built = buildRules({ rules: parseRules(RULE_MAP, map), cases: parseMap(RULE_MAP, map),
+      tools: discoverTools({ home, workRoot }), config: { projects: {}, catalogDir: catalog(home) } }, [map]);
+    writeRules({ home, built, mapFiles: [map] });
+  }
+  runHook({ home, input: { cwd: workRoot } });
+  return { home, workRoot, map };
+}
+const critical = (home) => path.join(home, '.claude', 'rules', 'stockroom-critical.md');
+const context = (out) => JSON.parse(out).hookSpecificOutput.additionalContext;
+
+test('rules never applied: no rules folder and the usual line', () => {
+  const { home, workRoot } = ruledHome({ apply: false });
+  fs.appendFileSync(path.join(home, 'map.md'), '| `quiet` | Changed | |\n');
+  const out = runHook({ home, input: { cwd: workRoot } });
+  assert.ok(!fs.existsSync(path.join(home, '.claude', 'rules')));
+  assert.equal(context(out), HOOK_LINE(catalog(home), false));
+});
+
+test('a map that loses a critical rule keeps the old files and says so', () => {
+  const { home, workRoot, map } = ruledHome();
+  const before = fs.readFileSync(critical(home), 'utf8');
+  fs.writeFileSync(map, RULE_MAP.replace('| * | Ask before publishing | critical |\n', ''));
+  const said = context(runHook({ home, input: { cwd: workRoot } }));
+  assert.equal(fs.readFileSync(critical(home), 'utf8'), before);
+  assert.match(said, /Stockroom: rules not updated \(the map now has 1 critical rules, 2 before\); the previous ones still apply\. Details: .*errors\.log\./);
+});
+
+test('a changed on-use rule updates the index without a warning', () => {
+  const { home, workRoot, map } = ruledHome();
+  fs.writeFileSync(map, RULE_MAP.replace('Keep it short', 'Keep it very short'));
+  const said = context(runHook({ home, input: { cwd: workRoot } }));
+  const index = JSON.parse(fs.readFileSync(path.join(stateDir(home), 'rules-index.json'), 'utf8'));
+  assert.deepEqual(index.rules.quiet, ['Keep it very short']);
+  assert.doesNotMatch(said, /not updated|error/);
+});
+
+test('an unreadable config: the usual line plus the error sentence', () => {
+  const { home, workRoot } = ruledHome();
+  fs.writeFileSync(path.join(stateDir(home), 'config.json'), '{broken');
+  const said = context(runHook({ home, input: { cwd: workRoot } }));
+  assert.ok(said.startsWith('Stockroom: '));
+  assert.match(said, /Stockroom: an internal error occurred; details: .*errors\.log\.$/);
 });
