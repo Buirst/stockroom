@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3 (2026-10-22)
+
+- A recent install only keeps a tool on; it never turns back on a tool Stockroom already turned off (0.4.2 would have
+  turned back on every off tool installed in the last `days`). Turning one back on still needs a real use.
+
 ## 0.4.2 (2026-10-22)
 
 - Installing counts as a use: with `"usage"` and the automatic shelf, a plugin installed (or a personal skill added or

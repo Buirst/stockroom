@@ -255,3 +255,11 @@ test("shelf 'usage': a tool installed less than \"days\" ago counts as used", ()
   const old = tools.map((t) => (t.name === 'beatlab-x' ? { ...t, since: now - 40 * DAY } : t));
   assert.ok(offKeys(planShelf({ tools: old, config: { ...base, shelf: 'usage' }, usage, now })).includes('skillOverrides/beatlab-x'));
 });
+
+test('a recent install never turns back on a tool Stockroom turned off: that needs a real use', () => {
+  const off = [{ kind: 'skill', name: 'fresh', origin: 'personal', enabled: false, since: now - DAY, off: { via: 'skillOverrides', key: 'fresh' } }];
+  const applied = [{ via: 'skillOverrides', key: 'fresh' }];
+  assert.deepEqual(planShelf({ tools: off, config: { ...base, shelf: 'usage' }, usage: new Map(), now, applied }).on, []);
+  const r = planShelf({ tools: off, config: { ...base, shelf: 'usage' }, usage: new Map([['fresh', now - DAY]]), now, applied });
+  assert.deepEqual(r.on.map((o) => o.key), ['fresh']);
+});

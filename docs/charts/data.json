@@ -45,6 +45,6 @@
       { "value": "+45–70 ms", "label": "Rule hook on a skill call, over Node's own start" },
       { "value": "~10 s", "label": "Daily shelf run, in a background process: the session does not wait" }
     ],
-    "footer": "212 unit tests on Windows, macOS and Linux (Node 18 and 22). No network requests."
+    "footer": "213 unit tests on Windows, macOS and Linux (Node 18 and 22). No network requests."
   }
 }
