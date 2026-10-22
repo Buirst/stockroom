@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 (2026-10-22)
+
+- The one-time reminder asks Claude to read the SKILL.md of the tool the map names, not only to grep the map. In
+  the real test Claude found the tool after the reminder but only added its name to the plan.
+
 ## 0.4.0 (2026-10-22)
 
 - `"auto": true`: the shelf keeps itself up to date. Reading the SKILL.md of something Stockroom turned off turns it
