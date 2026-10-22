@@ -1,0 +1,26 @@
+name: Bug report
+description: Something did not work as described
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `node bin/stockroom.js status`
+      description: Remove anything private (paths, tool names) first.
+      render: text
+  - type: input
+    id: env
+    attributes:
+      label: OS, Node.js version, Claude Code version
+    validations:
+      required: true

@@ -1,0 +1,25 @@
+name: Test report
+description: You tried Stockroom (see docs/TESTING.md); tell us how it went
+labels: [test-report]
+body:
+  - type: input
+    id: env
+    attributes:
+      label: OS, Node.js version, Claude Code version
+    validations:
+      required: true
+  - type: input
+    id: size
+    attributes:
+      label: How many tools does `status` report?
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried and what happened
+      description: The panel, drafting a map, a task that needed a turned-off tool.
+    validations:
+      required: true
+  - type: textarea
+    id: confusing
+    attributes:
+      label: Anything confusing or slow?

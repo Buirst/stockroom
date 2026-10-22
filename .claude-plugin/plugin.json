@@ -1,0 +1,9 @@
+{
+  "name": "stockroom",
+  "version": "0.2.0",
+  "description": "Install as many skills, plugins and MCP servers as you want. Claude keeps knowing what each one is for, without loading them all into every session.",
+  "author": {
+    "name": "Buirst"
+  },
+  "license": "MIT"
+}

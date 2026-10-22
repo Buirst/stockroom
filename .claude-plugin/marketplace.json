@@ -1,0 +1,14 @@
+{
+  "name": "stockroom",
+  "description": "Stockroom: a full catalog of every installed Claude Code tool, outside the context.",
+  "owner": {
+    "name": "Buirst"
+  },
+  "plugins": [
+    {
+      "name": "stockroom",
+      "source": "./",
+      "description": "Install as many skills, plugins and MCP servers as you want. Claude keeps knowing what each one is for, without loading them all into every session."
+    }
+  ]
+}
