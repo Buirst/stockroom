@@ -192,18 +192,24 @@ function shelfPlan() {
       + ' "list" or "none" (everything except "neverOff").');
     return;
   }
+  const { r, off, on } = computeShelf(c);
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(planPath, JSON.stringify({ at: new Date().toISOString(), shelf: c.shelf, off, on }, null, 2) + '\n');
+  printShelf(c, r);
+}
+
+function computeShelf(c) {
   const tools = discoverTools({ home, workRoot: cwd });
   const usage = ['usage', 'map'].includes(c.shelf) || c.unmapped === 'usage'
     ? toolUsage({ home, days: Math.max(c.days, ...Object.values(c.sections).map((s) => s.days || 0)) }) : new Map();
   const cases = expandMaps(c.mapFiles, home).flatMap((f) => parseMap(fs.readFileSync(f, 'utf8'), f));
   const applied = readJson(path.join(stateDir, 'applied.json'), []);
   const r = planShelf({ tools, config: c, usage, cases, applied, protectedNames: rulesNow().built.protected });
-  fs.mkdirSync(stateDir, { recursive: true });
   const brief = ({ tool, via, key, value }) => ({ via, key, ...(value ? { value } : {}), kind: tool.kind, name: tool.name });
-  fs.writeFileSync(planPath, JSON.stringify({
-    at: new Date().toISOString(), shelf: c.shelf, off: r.off.map(brief), on: r.on.map(brief),
-  }, null, 2) + '\n');
+  return { r, off: r.off.map(brief), on: r.on.map(brief) };
+}
 
+function printShelf(c, r) {
   console.log(`Shelf "${c.shelf}"${c.shelf === 'usage' ? ` (last ${c.days} days)` : ''}: would turn off ${r.off.length}.`);
   for (const o of r.off) {
     console.log(`  ${o.via}: ${o.key}${o.value && o.value !== 'off' ? ` = ${o.value}` : ''}  (${o.tool.kind} ${o.tool.name}: ${o.reason})`);
@@ -238,6 +244,25 @@ function shelfApply() {
   console.log(`Turned off ${written.length}${on.length ? ` and back on ${on.length}` : ''} in ${settingsPath}.`);
   if (backupPath) console.log(`Backup of the previous settings: ${backupPath}`);
   console.log('It takes effect in the next session. Everything stays in the catalog; "stockroom undo" reverts.');
+}
+
+// "auto": the session hook runs this in the background once a day: plan the shelf and apply it at once.
+function autoShelf() {
+  const c = cfg();
+  if (!c.auto || !c.shelf) return;
+  const { off, on } = computeShelf(c);
+  const written = off.length ? applyShelf({ settingsPath, off, stateDir }).written : [];
+  const back = on.length ? undoShelf({ settingsPath, stateDir, only: new Set(on.map((o) => `${o.via}/${o.key}`)) }).restored : [];
+  const names = (list) => list.map((o) => o.key);
+  const changed = written.length || back.length;
+  const autoPath = path.join(stateDir, 'auto.json');
+  fs.writeFileSync(autoPath, JSON.stringify({
+    ...readJson(autoPath, {}), at: new Date().toISOString(), ...(changed ? { off: names(written), on: names(back), shown: false } : {}),
+  }, null, 2) + '\n');
+  if (changed) {
+    fs.appendFileSync(path.join(stateDir, 'auto.log'), `${new Date().toISOString()} off (unused ${c.days} days): `
+      + `${names(written).join(', ') || '-'}; on (used): ${names(back).join(', ') || '-'}\n`);
+  }
 }
 
 function undo() {
@@ -414,7 +439,7 @@ function reportCmd() {
 }
 
 const commands = {
-  status, check, catalog, undo, usage, doctor, 'e2e-grade': e2eGrade, report: reportCmd,
+  status, check, catalog, undo, usage, auto: autoShelf, doctor, 'e2e-grade': e2eGrade, report: reportCmd,
   shelf: () => ({ plan: shelfPlan, apply: shelfApply }[args[0]] || fail)(),
   map: () => ({ init: mapInit, 'draft-data': mapDraftData, index: mapIndexCmd }[args[0]] || fail)(),
   rules: () => ({ plan: rulesPlan, apply: rulesApply }[args[0]] || fail)(),

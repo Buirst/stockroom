@@ -25,6 +25,12 @@
         ]
       },
       {
+        "matcher": "Read",
+        "hooks": [
+          { "type": "command", "if": "Read(~/**/SKILL.md)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/pretool.js\"", "timeout": 5 }
+        ]
+      },
+      {
         "matcher": "ExitPlanMode|WebSearch|ToolSearch",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/nudge.js\"", "timeout": 5 }

@@ -184,6 +184,20 @@ every `~/.claude` path here lives under that folder instead, as in Claude Code.
 | `offAs` | How a personal or project skill goes to the stockroom: `"off"` (hidden) or `"name-only"` (its name stays in the listing, about 25 characters) | `"off"` |
 | `readMcp` | `true` to ask MCP servers for their tools whenever the panel rebuilds the catalog | `false` |
 | `catalogDir` | Where the catalog is written | `~/.claude/stockroom/catalog` |
+| `auto` | `true` keeps the shelf up to date by itself (see below) | `false` |
+
+## Automatic shelf
+
+With `"auto": true` and a `shelf` mode, the shelf follows what you use:
+
+- **Back on when used.** When Claude reads the SKILL.md of a skill or plugin that Stockroom turned off, it is turned
+  back on at once (from the next session; the SKILL.md already works in this one), and Claude is told.
+- **Off when unused.** Once a day, the session hook plans the shelf and applies it in a background process, so the
+  session does not wait. The next session tells Claude what changed.
+
+Every change is logged in `~/.claude/stockroom/auto.log`, and `undo` reverts it. MCP servers and connectors cannot be
+used while they are off, so they only come back with `undo` or by hand. Tools you turned off yourself are never
+turned on.
 
 ## What can be turned off
 

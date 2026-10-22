@@ -201,3 +201,21 @@ test('with a map, the line says an off tool works through its SKILL.md', () => {
   assert.match(line, /"off: read <path>" tools work now through that file/);
   assert.ok(line.length <= 300, `${line.length} chars`);
 });
+
+test('autoStep: starts the shelf run once a day and tells Claude once what the last run changed', async () => {
+  const { autoStep } = await import('../lib/hook.js');
+  const state = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-autostep-'));
+  const runs = [];
+  const step = (now) => autoStep({ state, errors: path.join(state, 'errors.log'), workRoot: state, log: () => {}, now, run: (x) => runs.push(x) });
+  const t0 = Date.parse('2026-10-22T10:00:00Z');
+  assert.equal(step(t0), '');
+  assert.equal(runs.length, 1, 'first session: due');
+  assert.equal(step(t0 + 3600000), '');
+  assert.equal(runs.length, 1, 'same day: not due');
+  const file = path.join(state, 'auto.json');
+  fs.writeFileSync(file, JSON.stringify({ ...JSON.parse(fs.readFileSync(file, 'utf8')), off: ['neon@m'], on: [], shown: false }));
+  assert.match(step(t0 + 7200000), /turned off for lack of use: neon@m; back on: nothing/);
+  assert.equal(step(t0 + 7300000), '', 'said once');
+  step(t0 + 86400000);
+  assert.equal(runs.length, 2, 'next day: due again');
+});

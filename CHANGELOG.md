@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-10-22)
+
+- `"auto": true`: the shelf keeps itself up to date. Reading the SKILL.md of something Stockroom turned off turns it
+  back on at once; once a day the session hook re-plans and applies the shelf in the background. Logged in
+  `auto.log`; `undo` reverts.
+- On-use rules now reach skills under `~/` (plugins, personal skills): `Read(**/SKILL.md)` only matched files under the
+  working folder.
+
 ## 0.3.5 (2026-10-22)
 
 - The reminder now fires when Claude writes a plan. Plans live in `~/.claude/plans`, and the hook looked for them under

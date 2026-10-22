@@ -19,7 +19,7 @@ test('defaults when there is no config file', () => {
   const h = home();
   assert.deepEqual(loadConfig(h), {
     shelf: null, days: 30, list: [], neverOff: [], mapFiles: [], readMcp: false,
-    keep: 1, unmapped: 'keep', alwaysOff: [], sections: {}, offAs: 'off', projects: {},
+    keep: 1, unmapped: 'keep', alwaysOff: [], sections: {}, offAs: 'off', projects: {}, auto: false,
     catalogDir: path.join(h, '.claude', 'stockroom', 'catalog'),
   });
 });
@@ -69,4 +69,15 @@ test('map rules: valid keys load; invalid ones name the key', () => {
   }
   write({});
   assert.deepEqual([loadConfig(home).keep, loadConfig(home).unmapped, loadConfig(home).alwaysOff, loadConfig(home).sections], [1, 'keep', [], {}]);
+});
+
+test('"auto" is off by default and must be true or false', async () => {
+  const { loadConfig } = await import('../lib/config.js');
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-auto-'));
+  fs.mkdirSync(path.join(h, '.claude', 'stockroom'), { recursive: true });
+  const write = (c) => fs.writeFileSync(path.join(h, '.claude', 'stockroom', 'config.json'), JSON.stringify(c));
+  write({});
+  assert.equal(loadConfig(h).auto, false);
+  write({ auto: 'yes' });
+  assert.throws(() => loadConfig(h), /"auto" must be true or false/);
 });
