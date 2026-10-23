@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toolKey, pretoolOutput, skillReads, wakeIds } from '../lib/pretool.js';
+import { FIT_TEXT, toolKey, pretoolOutput, skillReads, wakeIds } from '../lib/pretool.js';
 
 const bin = fileURLToPath(new URL('../bin/pretool.js', import.meta.url));
 const index = {
@@ -71,11 +71,14 @@ test('the hook script: injects, logs the injection, and exits 0 on any input', (
   assert.match(r.stdout, /Stockroom rules for pdf/);
   const log = fs.readFileSync(path.join(h, '.claude', 'stockroom', 'injections.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
   assert.deepEqual([log[0].session, log[0].tool, log[0].rules], ['s1', 'pdf', 1]);
-  for (const input of ['', '{not json', JSON.stringify({ tool_name: 'Skill', tool_input: { skill: 'none' } })]) {
+  for (const input of ['', '{not json']) {
     const x = run(h, input);
     assert.equal(x.status, 0);
     assert.equal(x.stdout, '');
   }
+  // A skill without rules still gets the fit-to-task line, and nothing else.
+  const plain = run(h, JSON.stringify({ tool_name: 'Skill', tool_input: { skill: 'none' } }));
+  assert.equal(JSON.parse(plain.stdout).hookSpecificOutput.additionalContext, FIT_TEXT);
   const missing = run(home(false), JSON.stringify({ tool_name: 'Skill', tool_input: { skill: 'pdf' } }));
   assert.equal(missing.status, 0);
   assert.equal(missing.stdout, '');
@@ -143,7 +146,7 @@ test('the hook script with "auto": reading an off skill turns it back on and say
       assert.equal(JSON.parse(fs.readFileSync(path.join(st, 'applied.json'), 'utf8')).length, 2);
       assert.match(fs.readFileSync(path.join(st, 'auto.log'), 'utf8'), /on \(used\): write-swift/);
     } else {
-      assert.equal(r.stdout, '');
+      assert.equal(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, FIT_TEXT);
       assert.deepEqual(now, settings);
     }
   }

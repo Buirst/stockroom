@@ -200,11 +200,12 @@ function shelfPlan() {
 
 function computeShelf(c) {
   const tools = discoverTools({ home, workRoot: cwd });
+  const counts = new Map();
   const usage = ['usage', 'map'].includes(c.shelf) || c.unmapped === 'usage'
-    ? toolUsage({ home, days: Math.max(c.days, ...Object.values(c.sections).map((s) => s.days || 0)) }) : new Map();
+    ? toolUsage({ home, days: Math.max(c.days, ...Object.values(c.sections).map((s) => s.days || 0)), counts }) : new Map();
   const cases = expandMaps(c.mapFiles, home).flatMap((f) => parseMap(fs.readFileSync(f, 'utf8'), f));
   const applied = readJson(path.join(stateDir, 'applied.json'), []);
-  const r = planShelf({ tools, config: c, usage, cases, applied, protectedNames: rulesNow().built.protected });
+  const r = planShelf({ tools, config: c, usage, counts, cases, applied, protectedNames: rulesNow().built.protected });
   const brief = ({ tool, via, key, value }) => ({ via, key, ...(value ? { value } : {}), kind: tool.kind, name: tool.name });
   return { r, off: r.off.map(brief), on: r.on.map(brief) };
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 (2026-10-23)
+
+- New `keepTop` for `"usage"`: only the N most-used tools stay on; everything else goes off and stays findable through
+  the catalog. Why: in an A/B test of 10 tasks, a small set of tools on scored as well as or better than 208 on, at half
+  the cost per session. With `keepTop`, a new install gets 7 days to be tried instead of `days`.
+- `claude -p` sessions (entrypoint `sdk-cli`: scripts and benchmarks) no longer count as use.
+- The one-time reminder now says to keep the plan as it is when the map names nothing better, instead of rewriting it.
+- When Claude opens a skill, one line asks it to take only the steps the task asks for and to leave Stockroom out of
+  the answer. In the A/B (judge with web access) plans built on skills went from 7.75 to 8.20 on "proportionate", and
+  answers naming Stockroom or its map from 3 in 10 to 0.
+
 ## 0.4.4 (2026-10-22)
 
 - Reading a SKILL.md from the shell (`cat`, `sed`, `head`, `Get-Content`) now counts like the Read tool: it shows the

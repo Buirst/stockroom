@@ -49,7 +49,7 @@ Windows, macOS and Linux in CI. Want to help test it? See [docs/TESTING.md](docs
 | **Tool rules** | Rules per tool from the map: critical ones always loaded (about 2 KB), the rest shown only when the tool is used, project ones only in that project | A map with a `Rule` table |
 | **Reminder** | Once per session, if Claude writes a plan or searches without checking the map, it is reminded to grep it and read the tool's `SKILL.md` | A map |
 | **Shelf** | Turns off what you do not use, by usage, by your map or by a list, through official reversible settings, with a backup | `"shelf"` in config |
-| **Automatic shelf** | Off after `days` without use, once a day in the background; back on as soon as Claude reads the tool's `SKILL.md` | `"auto": true` |
+| **Automatic shelf** | Off after `days` without use (or, with `keepTop`, everything but your N most-used tools), once a day in the background; back on as soon as Claude reads the tool's `SKILL.md` | `"auto": true` |
 | **Panel** | `/stockroom`: status, map checks, shelf and rule plans, undo; changes nothing without your yes | Nothing |
 | **Report and doctor** | Whether the map is used and followed; a health check of hooks, rules and project paths | Nothing |
 
@@ -207,6 +207,7 @@ every `~/.claude` path here lives under that folder instead, as in Claude Code.
 |---|---|---|
 | `shelf` | `null` (turn nothing off), `"map"` (in each case of your map keep the first `keep` tools, plus any used in `days`), `"usage"` (turn off what was not used in `days`), `"list"` (turn off what `list` names), `"none"` (turn off everything except `neverOff`) | `null` |
 | `days` | Days of use that keep a tool on with `"usage"` and `"map"` | `30` |
+| `keepTop` | With `"usage"`: only the N most-used tools in `days` stay on (a plugin counts the uses of all its tools); the rest go off and stay findable. A new install gets 7 days | `null` |
 | `keep` | With `"map"`: how many tools stay on in each case | `1` |
 | `unmapped` | With `"map"`: tools no case names: `"keep"`, `"usage"` (off if unused in `days`) or `"off"` | `"keep"` |
 | `sections` | With `"map"`: rules per map heading (`*` allowed): `{ "Design": { "keep": 2, "days": 60, "order": ["impeccable"] } }`; `order` puts those tools first | `{}` |
@@ -247,7 +248,7 @@ What the automatic shelf never turns off:
 - plugins that work through hooks or language servers, since their use cannot be measured;
 - account skills synced from claude.ai and subagents, which have no switch of their own.
 
-Use counts come from your session transcripts (skills launched, subagents, MCP calls, `SKILL.md` reads) over `days`.
+Use counts come from your session transcripts (skills launched, subagents, MCP calls, `SKILL.md` reads) over `days`. `claude -p` runs (scripts, benchmarks) do not count.
 Installing counts as a use: a plugin installed, or a personal skill added or edited, less than `days` ago stays on (a recent install never turns an off tool back on; that needs a real use).
 The run starts from the folder of the session that triggers it, so it sees the project skills under that folder.
 
@@ -293,9 +294,12 @@ The catalog lives outside your working folder. If Claude asks permission each ti
 ## Benchmarks
 
 Real `claude -p` sessions on the author's setup (about 580 tools, listing far over the default budget), one run per
-case, plan mode, at most 6 turns. Full method, every case and every version: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+case, plan mode. The tool exams check that Claude picks the right tool; the A/B checks the result itself: the same
+quality as no Stockroom, for 39% less per task with a small set on. Full method, every case and every version: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 <p align="center"><img src="docs/assets/scorecard.png" width="760" alt="Stockroom 0.4.1, four exams: turned-off tools used 10/10, traps left alone 4/4, tool rules followed 4/5 (5/5 with 12 turns), turned-on tools with a truncated listing 9/10 (measured on 0.3.4)."></p>
+
+<p align="center"><img src="docs/assets/outcomes.png" width="760" alt="A/B of outcomes, 10 tasks, blind judge with web access, score and cost per task: Claude alone 8.5 at $0.17; top 20 tools without Stockroom 8.7 at $0.21; all 580 on 8.13 at $0.45; Stockroom 0.4.4 with 208 on 8.25 at $0.46; Stockroom 0.5.0 with about 50 on 8.38 at $0.28. Quality gaps are within noise; cost is not."></p>
 
 <p align="center"><img src="docs/assets/context.png" width="760" alt="The author's setup before and after Stockroom: tool rules loaded every session 62,974 bytes to 2,234 (minus 96%); skills in the listing 292 to 208 (minus 29%); skill listing 84,189 to 75,224 characters (minus 11%). Nothing uninstalled: 193 skills off and still in the catalog."></p>
 

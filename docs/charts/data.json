@@ -1,50 +1,199 @@
 {
   "versions": {
     "eyebrow": "Real test · Claude Code · 10 cases per version",
-    "title": ["Turned off is not ", "gone", "."],
+    "title": [
+      "Turned off is not ",
+      "gone",
+      "."
+    ],
     "subtitle": "Tasks that need a tool the user turned off. Pass = Claude finds it in the catalog and reads its SKILL.md (or follows the user's privacy rule).",
     "rows": [
-      { "label": "0.1.2", "value": 6, "of": 10 },
-      { "label": "0.3.0", "value": 3, "of": 10 },
-      { "label": "0.3.1", "value": 6, "of": 10 },
-      { "label": "0.3.3", "value": 7, "of": 10 },
-      { "label": "0.3.4", "value": 6, "of": 10 },
-      { "label": "0.4.0", "value": 8, "of": 10 },
-      { "label": "0.4.1", "value": 10, "of": 10, "hero": true }
+      {
+        "label": "0.1.2",
+        "value": 6,
+        "of": 10
+      },
+      {
+        "label": "0.3.0",
+        "value": 3,
+        "of": 10
+      },
+      {
+        "label": "0.3.1",
+        "value": 6,
+        "of": 10
+      },
+      {
+        "label": "0.3.3",
+        "value": 7,
+        "of": 10
+      },
+      {
+        "label": "0.3.4",
+        "value": 6,
+        "of": 10
+      },
+      {
+        "label": "0.4.0",
+        "value": 8,
+        "of": 10
+      },
+      {
+        "label": "0.4.1",
+        "value": 10,
+        "of": 10,
+        "hero": true
+      }
     ],
     "footer": "One claude -p run per case, plan mode, at most 6 turns, on the author's setup (about 580 tools). Traps that need no tool: 4/4 left alone in every version."
   },
   "scorecard": {
     "eyebrow": "Stockroom 0.4.1 · four exams",
-    "title": ["Finds what is off. ", "Leaves alone", " what needs nothing."],
+    "title": [
+      "Finds what is off. ",
+      "Leaves alone",
+      " what needs nothing."
+    ],
     "rows": [
-      { "label": "Turned-off tools used", "value": 10, "of": 10, "hero": true },
-      { "label": "Traps left alone", "value": 4, "of": 4, "hero": true },
-      { "label": "Tool rules followed", "value": 4, "of": 5, "hero": true, "note": "5/5 with 12 turns" },
-      { "label": "Turned-on tools, truncated listing", "value": 9, "of": 10, "hero": true, "note": "measured on 0.3.4" }
+      {
+        "label": "Turned-off tools used",
+        "value": 10,
+        "of": 10,
+        "hero": true
+      },
+      {
+        "label": "Traps left alone",
+        "value": 4,
+        "of": 4,
+        "hero": true
+      },
+      {
+        "label": "Tool rules followed",
+        "value": 4,
+        "of": 5,
+        "hero": true,
+        "note": "5/5 with 12 turns"
+      },
+      {
+        "label": "Turned-on tools, truncated listing",
+        "value": 9,
+        "of": 10,
+        "hero": true,
+        "note": "measured on 0.3.4"
+      }
     ],
     "footer": "Rule traps: a fake HOME for one skill, no posting without a yes, no client files to a cloud tool, cost before generating, deploy flags for one project. The miss ran out of the exam's 6 turns."
   },
+  "outcomes": {
+    "eyebrow": "A/B of outcomes · 10 tasks · blind judge with web access",
+    "title": [
+      "Same quality. ",
+      "40% less",
+      " per task."
+    ],
+    "subtitle": "Plans for the same 10 tasks, scored 0-10 by an Opus judge that saw them unlabeled and could check claims on the web. After each score: cost per task.",
+    "rows": [
+      {
+        "label": "Claude alone",
+        "value": 8.5,
+        "of": 10,
+        "note": "$0.17"
+      },
+      {
+        "label": "Top 20, no Stockroom",
+        "value": 8.7,
+        "of": 10,
+        "note": "$0.21"
+      },
+      {
+        "label": "All 580 on",
+        "value": 8.13,
+        "of": 10,
+        "note": "$0.45"
+      },
+      {
+        "label": "0.4.4 · 208 on",
+        "value": 8.25,
+        "of": 10,
+        "note": "$0.46"
+      },
+      {
+        "label": "0.5.0 · ~50 on",
+        "value": 8.38,
+        "of": 10,
+        "note": "$0.28",
+        "hero": true
+      }
+    ],
+    "footer": "One claude -p run per case, plan mode, the author's setup. Scores move about ±0.3 between judgings, so the quality gaps are noise; cost is not (0.5.0: $0.28 vs $0.46 for 0.4.4). 0.5.0 opened the right turned-off tool in 5 of the 6 tasks that had one."
+  },
   "context": {
     "eyebrow": "The author's setup · before and after Stockroom",
-    "title": ["Same tools installed. ", "Less", " in every session."],
-    "groups": [
-      { "label": ["Tool rules loaded", "every session"], "before": 62974, "after": 2234, "unit": "bytes" },
-      { "label": ["Skills in the", "listing"], "before": 292, "after": 208, "unit": "skills" },
-      { "label": ["Skill listing", "size"], "before": 84189, "after": 75224, "unit": "chars" }
+    "title": [
+      "Same tools installed. ",
+      "Less",
+      " in every session."
     ],
-    "legend": ["Before", "With Stockroom (rules from the map, shelf by 30 days of use)"],
+    "groups": [
+      {
+        "label": [
+          "Tool rules loaded",
+          "every session"
+        ],
+        "before": 62974,
+        "after": 2234,
+        "unit": "bytes"
+      },
+      {
+        "label": [
+          "Skills in the",
+          "listing"
+        ],
+        "before": 292,
+        "after": 208,
+        "unit": "skills"
+      },
+      {
+        "label": [
+          "Skill listing",
+          "size"
+        ],
+        "before": 84189,
+        "after": 75224,
+        "unit": "chars"
+      }
+    ],
+    "legend": [
+      "Before",
+      "With Stockroom (rules from the map, shelf by 30 days of use)"
+    ],
     "footer": "Before = 100%. A 63 KB tool guide became map rules: critical ones always loaded, the rest shown when the tool is used (8 KB of general guidance stays outside Stockroom). Nothing was uninstalled: 193 skills are off and still in the catalog."
   },
   "speed": {
     "eyebrow": "Measured on Windows 11 · Node 24",
-    "title": ["Fast enough to ", "forget", "."],
-    "tiles": [
-      { "value": "~200 ms", "label": "Session start when nothing changed" },
-      { "value": "73 ms", "label": "Full catalog, 602 tools, 0 descriptions changed" },
-      { "value": "+45–70 ms", "label": "Rule hook on a skill call, over Node's own start" },
-      { "value": "~10 s", "label": "Daily shelf run, in a background process: the session does not wait" }
+    "title": [
+      "Fast enough to ",
+      "forget",
+      "."
     ],
-    "footer": "213 unit tests on Windows, macOS and Linux (Node 18 and 22). No network requests."
+    "tiles": [
+      {
+        "value": "~200 ms",
+        "label": "Session start when nothing changed"
+      },
+      {
+        "value": "73 ms",
+        "label": "Full catalog, 602 tools, 0 descriptions changed"
+      },
+      {
+        "value": "+45–70 ms",
+        "label": "Rule hook on a skill call, over Node's own start"
+      },
+      {
+        "value": "~10 s",
+        "label": "Daily shelf run, in a background process: the session does not wait"
+      }
+    ],
+    "footer": "217 unit tests on Windows, macOS and Linux (Node 18 and 22). No network requests."
   }
 }

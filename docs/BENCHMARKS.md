@@ -101,6 +101,47 @@ The automatic shelf, checked live:
 - A session started after the shelf ran had the off skills missing from its listing and the on ones present.
 - The daily background run finished about 12 seconds after the session hook returned, with no errors.
 
+## Outcomes: A/B against no Stockroom (2026-10-23)
+
+The exams above measure whether Claude finds the right tool. A reader asked the harder question: are the results
+better than with no tools, or with a small hand-kept set? So the same 10 tasks ran in five setups and a judge scored
+the plans.
+
+![Outcomes](assets/outcomes.png)
+
+- **Tasks.** 10 general ones, in English, unrelated to the author's projects: a promo video of a landing page, a mock
+  API from an OpenAPI spec, an Excel summary with live formulas, filling a PDF form per row of a sheet, a product photo
+  that rotates on scroll, a small logo that reads at favicon size, a dedupe function with tests, a stale-cache bug, a
+  percentage and a two-sentence definition.
+- **Sessions.** One `claude -p` run per task and setup, plan mode, at most 12 turns, from an empty folder.
+- **Judge.** One Opus session per task sees the five plans unlabeled and scores each 0 to 10 (correct, complete,
+  actionable, proportionate, overall), then again in the reverse order; the two are averaged. It may check commands
+  and APIs on the web. A first judge without web access marked real, recent CLI commands as invented, so its scores
+  were dropped.
+
+| Setup | Tools on | Score | Cost per task | Time per task |
+|---|---|---|---|---|
+| Claude alone (no plugins, skills or MCP) | 0 | 8.50 | $0.17 | 30 s |
+| The plugins and skills behind the 20 most-used skills, no Stockroom | about 50 | 8.70 | $0.21 | 43 s |
+| All 580 on, no Stockroom | 580 | 8.13 | $0.45 | 76 s |
+| Stockroom 0.4.4 as installed (shelf by 30 days of use) | 208 | 8.25 | $0.46 | 93 s |
+| Stockroom 0.5.0 on the same 50 as the second row | about 50 | 8.38 | $0.28 | 62 s |
+
+What it says:
+
+- **Quality is a tie.** Judging the same plans twice moved a setup by about ±0.3, and a task where no tool was used
+  still moved by a full point. None of the score gaps is larger than that noise.
+- **Cost is not a tie.** Every session pays for the tools that are on. A two-sentence answer cost $0.04 with no tools,
+  $0.13 with about 50, and $0.28 with 208. 0.5.0 with 50 on costs 39% less per task than 0.4.4 with 208, and still
+  opened the right turned-off tool's `SKILL.md` in 5 of the 6 tasks that had one.
+- **Tools help where Claude lacks the knowledge.** With a turned-off skill, the promo video plan followed a real,
+  recent pipeline and scored a point higher than without it. Where Claude already knows the job (Excel, PDF forms, a
+  mock server with Prism), a skill added steps and the plans scored the same or lower.
+- **What changed in 0.5.0 because of it.** Plans built on a skill used to copy its whole workflow and name Stockroom's
+  map in the answer. One line when Claude opens a skill ("take only the steps the task asks for") moved
+  "proportionate" from 7.75 to 8.20 and the answers naming the map from 3 in 10 to 0. `keepTop` keeps only the N
+  most-used tools on.
+
 ## Speed and tests
 
 ![Speed](assets/speed.png)
@@ -111,7 +152,7 @@ The automatic shelf, checked live:
 | Full catalog of 602 tools | 73 ms; 0 descriptions missing or changed |
 | Rule hook on a skill call or `SKILL.md` read | 45 to 70 ms over Node's own start-up (an empty Node takes 97 ms median on the same laptop) |
 | Daily shelf run | about 10 s, in a detached process |
-| Unit tests | 213, on Windows, macOS and Linux with Node 18 and 22 |
+| Unit tests | 217, on Windows, macOS and Linux with Node 18 and 22 |
 
 ## Limits
 
@@ -119,7 +160,8 @@ The automatic shelf, checked live:
 - **One run per case.** Treat a single case flipping as noise; look at the totals across versions.
 - **The 6-turn cap is the exam's, not Claude Code's.** It cuts sessions that explore before they answer. Normal sessions
   have no such cap.
-- **Usage counts exam sessions.** The automatic shelf reads 30 days of transcripts, and exam sessions are transcripts
-  too. Tools the exams read count as used.
+- **One run per case in the A/B too.** Its quality differences are within noise; only cost and time are firm.
+- **Exam sessions no longer count as use** (since 0.5.0, `claude -p` runs are left out), but the earlier exams above
+  ran while they still did.
 - **The exam cases are not published.** They are written around the author's own projects and accounts. The grader
   (`stockroom e2e-grade`) and the method above are.

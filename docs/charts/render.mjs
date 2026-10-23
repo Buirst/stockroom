@@ -77,7 +77,7 @@ function speed(d) {
   return page(`<div class="eyebrow">${esc(d.eyebrow)}</div>${title(d.title)}<div class="tiles">${tiles}</div><p class="foot">${esc(d.footer)}</p>`);
 }
 
-const charts = { versions: bars(data.versions), scorecard: bars(data.scorecard, 380), context: context(data.context), speed: speed(data.speed) };
+const charts = { versions: bars(data.versions), scorecard: bars(data.scorecard, 380), outcomes: bars(data.outcomes, 380), context: context(data.context), speed: speed(data.speed) };
 fs.mkdirSync(out, { recursive: true });
 const browser = await pw.chromium.launch({ executablePath: process.env.BROWSER || undefined }); // BROWSER=<Chromium-based browser>, e.g. Brave;
 const tab = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 960, height: 800 } });

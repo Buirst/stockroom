@@ -263,3 +263,35 @@ test('a recent install never turns back on a tool Stockroom turned off: that nee
   const r = planShelf({ tools: off, config: { ...base, shelf: 'usage' }, usage: new Map([['fresh', now - DAY]]), now, applied });
   assert.deepEqual(r.on.map((o) => o.key), ['fresh']);
 });
+
+test("shelf 'usage' + keepTop: only the N most-used stay on, a plugin scored by its items; a week-old install stays", () => {
+  const two = [
+    { kind: 'skill', name: 'top', origin: 'personal', enabled: true, off: { via: 'skillOverrides', key: 'top' } },
+    { kind: 'skill', name: 'rare', origin: 'personal', enabled: true, off: { via: 'skillOverrides', key: 'rare' } },
+    { kind: 'skill', name: 'new', origin: 'personal', enabled: true, since: now - 3 * DAY, off: { via: 'skillOverrides', key: 'new' } },
+    { kind: 'skill', name: 'month', origin: 'personal', enabled: true, since: now - 20 * DAY, off: { via: 'skillOverrides', key: 'month' } },
+    { kind: 'plugin', name: 'busy', origin: 'plugin', plugin: 'busy', enabled: true, off: P('busy@mk') },
+    { kind: 'skill', name: 'busy:a', origin: 'plugin', plugin: 'busy', enabled: true, off: P('busy@mk') },
+    { kind: 'skill', name: 'busy:b', origin: 'plugin', plugin: 'busy', enabled: true, off: P('busy@mk') },
+  ];
+  const used = new Map(['top', 'rare', 'busy:a', 'busy:b'].map((n) => [n, now - DAY]));
+  const counts = new Map([['top', 5], ['rare', 1], ['busy:a', 2], ['busy:b', 2]]);
+  const r = planShelf({ tools: two, config: { ...base, shelf: 'usage', keepTop: 2 }, usage: used, counts, now });
+  assert.deepEqual(offKeys(r), ['skillOverrides/month', 'skillOverrides/rare']);
+  assert.match(r.off.find((o) => o.key === 'rare').reason, /not in your 2 most used/);
+  // Without keepTop nothing used changes.
+  assert.deepEqual(offKeys(planShelf({ tools: two, config: { ...base, shelf: 'usage' }, usage: used, counts, now })), []);
+});
+
+test('toolUsage: claude -p runs (entrypoint sdk-cli) do not count; counts tallies transcript uses', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-sdk-'));
+  const dir = path.join(home, '.claude', 'projects', 'p');
+  fs.mkdirSync(dir, { recursive: true });
+  const call = (skill, entrypoint) => JSON.stringify({ type: 'assistant', entrypoint, timestamp: new Date(now - DAY).toISOString(),
+    message: { content: [{ type: 'tool_use', id: 't', name: 'Skill', input: { skill } }] } });
+  fs.writeFileSync(path.join(dir, 's.jsonl'), [call('mine', 'cli'), call('mine', 'cli'), call('exam', 'sdk-cli')].join('\n'));
+  const counts = new Map();
+  const u = toolUsage({ home, days: 30, now, counts });
+  assert.equal(u.has('exam'), false);
+  assert.equal(counts.get('mine'), 2);
+});
