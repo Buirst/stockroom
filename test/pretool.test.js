@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toolKey, pretoolOutput, wakeIds } from '../lib/pretool.js';
+import { toolKey, pretoolOutput, skillReads, wakeIds } from '../lib/pretool.js';
 
 const bin = fileURLToPath(new URL('../bin/pretool.js', import.meta.url));
 const index = {
@@ -20,6 +20,20 @@ test('toolKey: Skill by name, Read of a SKILL.md by path on any OS; MCP calls ar
   assert.equal(toolKey({ tool_name: 'Read', tool_input: { file_path: '/home/x/notes.md' } }, index), null);
   assert.equal(toolKey({ tool_name: 'mcp__adobe__upload', tool_input: {} }, index), null);
   assert.equal(toolKey({ tool_name: 'Bash', tool_input: { command: 'ls' } }, index), null);
+});
+
+test('skillReads: a shell command reads a SKILL.md by any spelling of the path; toolKey and rules follow it', () => {
+  const sh = (command, tool_name = 'Bash') => ({ tool_name, tool_input: { command } });
+  const want = ['c:/users/x/.claude/skills/pdf/skill.md'];
+  assert.deepEqual(skillReads(sh('sed -n 1,90p ~/.claude/skills/pdf/SKILL.md'), 'C:\\Users\\X'), want);
+  assert.deepEqual(skillReads(sh('cat "$HOME/.claude/skills/pdf/SKILL.md" | head'), 'C:\\Users\\X'), want);
+  assert.deepEqual(skillReads(sh('cat /c/Users/X/.claude/skills/pdf/SKILL.md'), '/unused'), want);
+  assert.deepEqual(skillReads(sh('Get-Content $env:USERPROFILE\\.claude\\skills\\pdf\\SKILL.md', 'PowerShell'), 'C:\\Users\\X'), want);
+  assert.deepEqual(skillReads(sh('cat ~/a/SKILL.md ~/b/SKILL.md'), '/home/x'), ['/home/x/a/skill.md', '/home/x/b/skill.md']);
+  assert.deepEqual(skillReads(sh('grep -rn foo D:/notes'), '/home/x'), []);
+  assert.deepEqual(skillReads({ tool_name: 'Grep', tool_input: { path: '/home/x/a/SKILL.md' } }, '/home/x'), []);
+  assert.equal(toolKey(sh('cat ~/.claude/skills/pdf/SKILL.md'), index, '/home/x'), 'pdf');
+  assert.match(pretoolOutput(sh('cat ~/.claude/skills/pdf/SKILL.md'), index, '/home/x'), /Stockroom rules for pdf/);
 });
 
 test('pretoolOutput: rules as additionalContext, nothing for a tool without rules', () => {
@@ -87,10 +101,11 @@ test('the hook script adds little to Node start-up, with and without rules', () 
 test('hooks.json registers the PreToolUse handlers on the pretool script, not on MCP calls', () => {
   const all = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../hooks/hooks.json', import.meta.url)), 'utf8')).hooks.PreToolUse;
   const hooks = all.filter((g) => /bin\/pretool\.js/.test(g.hooks[0].command));
-  assert.deepEqual(hooks.map((g) => g.matcher), ['Skill', 'Read', 'Read']);
+  assert.deepEqual(hooks.map((g) => g.matcher), ['Skill', 'Read', 'Read', 'Bash', 'PowerShell']);
   assert.ok(!all.some((g) => /mcp__/.test(g.matcher)), 'no handler on MCP calls');
   // A rule path without a prefix is relative to the working folder: plugin and personal skills need the ~ one.
-  assert.deepEqual(hooks.slice(1).map((g) => g.hooks[0].if), ['Read(**/SKILL.md)', 'Read(~/**/SKILL.md)']);
+  assert.deepEqual(hooks.slice(1).map((g) => g.hooks[0].if),
+    ['Read(**/SKILL.md)', 'Read(~/**/SKILL.md)', 'Bash(*SKILL.md*)', 'PowerShell(*SKILL.md*)']);
   for (const g of hooks) assert.match(g.hooks[0].command, /bin\/pretool\.js/);
 });
 
@@ -118,7 +133,7 @@ test('the hook script with "auto": reading an off skill turns it back on and say
     const settings = { enabledPlugins: { 'neon@claude-plugins-official': false }, skillOverrides: { 'write-swift': 'off' } };
     fs.writeFileSync(path.join(h, '.claude', 'settings.json'), JSON.stringify(settings));
     const file = path.join(h, '.claude', 'skills', 'write-swift', 'SKILL.md');
-    const r = run(h, JSON.stringify({ tool_name: 'Read', tool_input: { file_path: file } }));
+    const r = run(h, JSON.stringify({ tool_name: 'Bash', tool_input: { command: `sed -n 1,80p "${file}"` } }));
     assert.equal(r.status, 0);
     const now = JSON.parse(fs.readFileSync(path.join(h, '.claude', 'settings.json'), 'utf8'));
     if (auto) {

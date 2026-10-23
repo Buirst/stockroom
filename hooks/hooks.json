@@ -31,6 +31,18 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "if": "Bash(*SKILL.md*)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/pretool.js\"", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          { "type": "command", "if": "PowerShell(*SKILL.md*)", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/pretool.js\"", "timeout": 5 }
+        ]
+      },
+      {
         "matcher": "ExitPlanMode|WebSearch|ToolSearch",
         "hooks": [
           { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/nudge.js\"", "timeout": 5 }

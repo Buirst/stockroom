@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { claudeDir, readJson } from '../lib/files.js';
-import { pretoolOutput, toolKey, wakeIds } from '../lib/pretool.js';
+import { pretoolOutput, skillReads, toolKey, wakeIds } from '../lib/pretool.js';
 
 const state = path.join(claudeDir(os.homedir()), 'stockroom');
 const texts = [];
@@ -13,10 +13,10 @@ try { input = JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch { /* bad i
 
 try {
   const index = JSON.parse(fs.readFileSync(path.join(state, 'rules-index.json'), 'utf8'));
-  const out = pretoolOutput(input, index);
+  const out = pretoolOutput(input, index, os.homedir());
   if (out) {
     texts.push(JSON.parse(out).hookSpecificOutput.additionalContext);
-    const tool = toolKey(input, index);
+    const tool = toolKey(input, index, os.homedir());
     fs.appendFileSync(path.join(state, 'injections.jsonl'), `${JSON.stringify({
       at: new Date().toISOString(), session: input.session_id || null, tool, rules: index.rules[tool].length,
     })}\n`);
@@ -25,8 +25,9 @@ try {
 
 // "auto": reading the SKILL.md of something the shelf turned off is using it, so it comes back on now.
 try {
-  const ids = input.tool_name === 'Read' && readJson(path.join(state, 'config.json'), {}).auto === true
-    ? wakeIds(input.tool_input?.file_path || '', readJson(path.join(state, 'applied.json'), [])) : [];
+  const files = skillReads(input, os.homedir());
+  const applied = files.length && readJson(path.join(state, 'config.json'), {}).auto === true ? readJson(path.join(state, 'applied.json'), []) : [];
+  const ids = [...new Set(files.flatMap((f) => wakeIds(f, applied)))];
   if (ids.length) {
     const { undoShelf } = await import('../lib/shelf.js');
     const { restored } = undoShelf({ settingsPath: path.join(claudeDir(os.homedir()), 'settings.json'), stateDir: state, only: new Set(ids) });

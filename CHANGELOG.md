@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.4 (2026-10-22)
+
+- Reading a SKILL.md from the shell (`cat`, `sed`, `head`, `Get-Content`) now counts like the Read tool: it shows the
+  tool's on-use rules, turns an off tool back on with `"auto"`, and counts as use for the shelf. The hook only starts
+  for shell commands that name a SKILL.md (`Bash(*SKILL.md*)`), so other commands cost nothing.
+- The one-time reminder no longer fires when Claude already grepped the map through `~/` or `$HOME/`: those paths now
+  count as reading the catalog.
+
 ## 0.4.3 (2026-10-22)
 
 - A recent install only keeps a tool on; it never turns back on a tool Stockroom already turned off (0.4.2 would have

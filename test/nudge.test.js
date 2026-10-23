@@ -17,6 +17,15 @@ test('consultedMap: a tool call that reads the catalog or the map index counts; 
   assert.equal(consultedMap([use('Bash', { command: 'ls D:/work' }), use('Grep', { pattern: 'postgres', path: 'D:\\work' })].join('\n'), cat), false);
 });
 
+test('consultedMap: the home folder written as ~ or $HOME counts too (a false reminder seen in a real session)', () => {
+  const cat = 'C:\\Users\\X\\.claude\\stockroom\\catalog';
+  for (const command of ['grep -n -i "brandkit" ~/.claude/stockroom/catalog/by-function.md',
+    'grep x "$HOME/.claude/stockroom/catalog/by-function.md"', 'grep x ${HOME}/.claude/stockroom/catalog/skills.md']) {
+    assert.equal(consultedMap(use('Bash', { command }), cat, 'C:\\Users\\X'), true, command);
+  }
+  assert.equal(consultedMap(use('Bash', { command: 'grep x ~/.claude/other/by-function.md' }), cat, 'C:\\Users\\X'), false);
+});
+
 function home({ map = true } = {}) {
   const h = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-nudge-'));
   const cat = path.join(h, '.claude', 'stockroom', 'catalog');

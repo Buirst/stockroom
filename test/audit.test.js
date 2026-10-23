@@ -120,8 +120,12 @@ test('8. reading a SKILL.md counts as use, so a skill used from the catalog stay
   const dir = path.join(home, '.claude', 'projects', 'p');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 's.jsonl'), JSON.stringify({ type: 'assistant', timestamp: new Date(now - DAY).toISOString(),
-    message: { content: [{ type: 'tool_use', id: 't', name: 'Read', input: { file_path: 'C:\\Users\\X\\skills\\a\\SKILL.md' } }] } }));
-  assert.equal(toolUsage({ home, days: 30, now }).get('read:c:/users/x/skills/a/skill.md'), now - DAY);
+    message: { content: [{ type: 'tool_use', id: 't', name: 'Read', input: { file_path: 'C:\\Users\\X\\skills\\a\\SKILL.md' } }] } })
+    + '\n' + JSON.stringify({ type: 'assistant', timestamp: new Date(now - DAY).toISOString(),
+      message: { content: [{ type: 'tool_use', id: 'u', name: 'Bash', input: { command: 'sed -n 1,90p /c/Users/X/skills/b/SKILL.md' } }] } }));
+  const usage = toolUsage({ home, days: 30, now });
+  assert.equal(usage.get('read:c:/users/x/skills/a/skill.md'), now - DAY);
+  assert.equal(usage.get('read:c:/users/x/skills/b/skill.md'), now - DAY, 'a shell read counts too');
 });
 
 test('8. skills hidden from Claude (disable-model-invocation) are never turned off: they cost nothing', () => {
