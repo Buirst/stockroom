@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 (2026-10-23)
+
+- An MCP server or connector added recently is no longer turned off as unused: they carry no install date, so
+  Stockroom now records when it first sees each one (`first-seen.json`) and counts that as the install. Before, a
+  server added today went off in the next daily run, and an MCP server cannot come back on by being used.
+- `keepTop` never turns off an MCP server, or a plugin that holds one, for the same reason.
+- Hook notices (rules, the fit-to-task line, a tool back on) are on separate lines.
+
 ## 0.5.0 (2026-10-23)
 
 - New `keepTop` for `"usage"`: only the N most-used tools stay on; everything else goes off and stays findable through

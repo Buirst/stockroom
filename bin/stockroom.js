@@ -7,7 +7,7 @@ import { readJson, claudeDir } from '../lib/files.js';
 import { discoverTools, findOnPath } from '../lib/tools.js';
 import { listingChars, listedSkills, toolUsage } from '../lib/measure.js';
 import { checkNode, loadConfig } from '../lib/config.js';
-import { planShelf, applyShelf, undoShelf, projectConflicts } from '../lib/shelf.js';
+import { planShelf, applyShelf, undoShelf, projectConflicts, stampFirstSeen } from '../lib/shelf.js';
 import { parseMap, parseRules, checkMap, externalTools, resolveRow, mapIndex } from '../lib/map.js';
 import { buildRules, planRules, writeRules, removeRules, targets } from '../lib/rules.js';
 import { spawnSync } from 'node:child_process';
@@ -200,6 +200,8 @@ function shelfPlan() {
 
 function computeShelf(c) {
   const tools = discoverTools({ home, workRoot: cwd });
+  const seenPath = path.join(stateDir, 'first-seen.json'), seen = readJson(seenPath, {});
+  if (stampFirstSeen(tools, seen)) { fs.mkdirSync(stateDir, { recursive: true }); fs.writeFileSync(seenPath, JSON.stringify(seen, null, 1) + '\n'); }
   const counts = new Map();
   const usage = ['usage', 'map'].includes(c.shelf) || c.unmapped === 'usage'
     ? toolUsage({ home, days: Math.max(c.days, ...Object.values(c.sections).map((s) => s.days || 0)), counts }) : new Map();

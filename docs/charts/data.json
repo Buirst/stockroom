@@ -194,6 +194,6 @@
         "label": "Daily shelf run, in a background process: the session does not wait"
       }
     ],
-    "footer": "217 unit tests on Windows, macOS and Linux (Node 18 and 22). No network requests."
+    "footer": "218 unit tests on Windows, macOS and Linux (Node 18 and 22). No network requests."
   }
 }

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planShelf, applyShelf, undoShelf, projectConflicts, mcpPrefix } from '../lib/shelf.js';
+import { planShelf, applyShelf, undoShelf, projectConflicts, mcpPrefix, stampFirstSeen } from '../lib/shelf.js';
 import { toolUsage } from '../lib/measure.js';
 
 const DAY = 86400000;
@@ -279,6 +279,10 @@ test("shelf 'usage' + keepTop: only the N most-used stay on, a plugin scored by 
   const r = planShelf({ tools: two, config: { ...base, shelf: 'usage', keepTop: 2 }, usage: used, counts, now });
   assert.deepEqual(offKeys(r), ['skillOverrides/month', 'skillOverrides/rare']);
   assert.match(r.off.find((o) => o.key === 'rare').reason, /not in your 2 most used/);
+  // An MCP server, or a plugin that holds one, stays on: it could not wake on use.
+  const mcp = [...two, { kind: 'mcp-server', name: 'docs', origin: 'user', enabled: true, off: { via: 'disabledMcpjsonServers', key: 'docs' } }];
+  const withMcp = planShelf({ tools: mcp, config: { ...base, shelf: 'usage', keepTop: 2 }, usage: new Map([...used, ['mcp__docs', now - DAY]]), counts, now });
+  assert.deepEqual(offKeys(withMcp), ['skillOverrides/month', 'skillOverrides/rare']);
   // Without keepTop nothing used changes.
   assert.deepEqual(offKeys(planShelf({ tools: two, config: { ...base, shelf: 'usage' }, usage: used, counts, now })), []);
 });
@@ -294,4 +298,15 @@ test('toolUsage: claude -p runs (entrypoint sdk-cli) do not count; counts tallie
   const u = toolUsage({ home, days: 30, now, counts });
   assert.equal(u.has('exam'), false);
   assert.equal(counts.get('mine'), 2);
+});
+
+test('stampFirstSeen: a new MCP server counts as installed when first seen, so the next daily run keeps it', () => {
+  const server = () => ({ kind: 'mcp-server', name: 'fresh', origin: 'user-mcp', enabled: true, off: { via: 'deniedMcpServers', key: 'fresh' } });
+  const seen = {};
+  const first = [server()];
+  assert.equal(stampFirstSeen(first, seen, now - DAY), true);
+  assert.equal(stampFirstSeen([server()], seen, now), false, 'the date is kept, not refreshed');
+  assert.deepEqual(offKeys(planShelf({ tools: first, config: { ...base, shelf: 'usage' }, usage: new Map(), now })), []);
+  const old = [server()]; stampFirstSeen(old, { 'user-mcp/fresh': now - 40 * DAY }, now);
+  assert.deepEqual(offKeys(planShelf({ tools: old, config: { ...base, shelf: 'usage' }, usage: new Map(), now })), ['deniedMcpServers/fresh']);
 });

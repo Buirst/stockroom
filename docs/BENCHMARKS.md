@@ -152,7 +152,7 @@ What it says:
 | Full catalog of 602 tools | 73 ms; 0 descriptions missing or changed |
 | Rule hook on a skill call or `SKILL.md` read | 45 to 70 ms over Node's own start-up (an empty Node takes 97 ms median on the same laptop) |
 | Daily shelf run | about 10 s, in a detached process |
-| Unit tests | 217, on Windows, macOS and Linux with Node 18 and 22 |
+| Unit tests | 218, on Windows, macOS and Linux with Node 18 and 22 |
 
 ## Limits
 
