@@ -68,3 +68,16 @@ test('hooks.json: the reminder runs on plan writes, ExitPlanMode, WebSearch and 
   assert.deepEqual(nudges.map((g) => g.matcher), ['ExitPlanMode|WebSearch|ToolSearch', 'Write']);
   assert.equal(nudges[1].hooks[0].if, 'Write(~/.claude/plans/**)');
 });
+
+const promptBin = fileURLToPath(new URL('../bin/prompt.js', import.meta.url));
+const runPrompt = (h) => spawnSync(process.execPath, [promptBin], { input: JSON.stringify({ prompt: 'hi' }), env: { ...process.env, HOME: h, USERPROFILE: h }, encoding: 'utf8' });
+
+test('the prompt line: points at the map on every prompt, silent when there is no map', () => {
+  const { h } = home();
+  const r = runPrompt(h);
+  assert.equal(r.status, 0);
+  const said = JSON.parse(r.stdout).hookSpecificOutput;
+  assert.equal(said.hookEventName, 'UserPromptSubmit');
+  assert.match(said.additionalContext, /^Stockroom: if this request may need a skill.*by-function\.md/);
+  assert.equal(runPrompt(home({ map: false }).h).stdout, '');
+});

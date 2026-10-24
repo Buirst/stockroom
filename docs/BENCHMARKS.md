@@ -80,6 +80,25 @@ Each version answered a failure the previous exam showed.
 | 0.3.5 | The reminder never fired on plan writes (rule path relative to the working folder; plans live in `~/.claude/plans`) | Fired in 12 sessions instead of 5 |
 | 0.4.0 | Automatic shelf; on-use rules reach skills under `~/` (same path bug) | 8/10 with 79 more tools turned off |
 | 0.4.1 | The reminder asks Claude to read the `SKILL.md` the map names, not only to grep | **10/10**; the last miss had found the tool but only named it in the plan |
+| 0.5.2 | One line next to each prompt: grep the map for the job before exploring files | Wording test (below): the three misses passed 5/6 (3/4 clean); plain questions 4/4 |
+
+## Different words from the description (2026-10-24)
+
+Asked on Reddit: does a turned-off tool still come back when the task uses different words from its description?
+Seven turned-off skills, each with a task written to share no keyword with its description or its map row (for
+example "members of a gym quit in the third month" for a churn skill, "the browser test runner from Microsoft left a
+.zip" for a trace reader). Same method as above: real sessions, plan mode, 6 turns, one run each.
+
+| Version | Result | Misses |
+|---|---|---|
+| 0.5.1 | 4/7 | 1 found the right map row on its last turn; 2 never looked at the map (one explored the project code, one picked a turned-on tool that overlaps) |
+| 0.5.2 | the 3 misses: 5/6 over two runs each | 1 run still explored the project code first |
+
+The wording was not what broke retrieval: Claude greps the map with its own synonyms and reached the right row in 5 of
+7 cases on 0.5.1. The misses were sessions that never looked. Caveat for 0.5.2: reading a tool's `SKILL.md` turns it
+back on, so in the second run two of the three tools were already on; counting only runs where the tool was still off,
+3/4. The four plain questions still touched no tool (4/4). Not tested: a setup with no map, where Claude can only grep
+the descriptions.
 
 ## The shelf on a real setup
 
@@ -152,7 +171,7 @@ What it says:
 | Full catalog of 602 tools | 73 ms; 0 descriptions missing or changed |
 | Rule hook on a skill call or `SKILL.md` read | 45 to 70 ms over Node's own start-up (an empty Node takes 97 ms median on the same laptop) |
 | Daily shelf run | about 10 s, in a detached process |
-| Unit tests | 218, on Windows, macOS and Linux with Node 18 and 22 |
+| Unit tests | 219, on Windows, macOS and Linux with Node 18 and 22 |
 
 ## Limits
 

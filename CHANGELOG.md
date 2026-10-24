@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 (2026-10-24)
+
+- One line next to each prompt (a `UserPromptSubmit` hook, about 0.15 s) tells Claude to grep the map for the job in
+  its own words before exploring files. Why: in a test where tasks share no keyword with the tool's description or map
+  row, the misses came from sessions that searched the disk for all their turns and never reached the plan write that
+  fires the one-time reminder. With the line those misses passed 5 of 6 runs (3 of 4 counting only runs where the tool
+  was still off), and plain questions still touched no tool (4 of 4).
+
 ## 0.5.1 (2026-10-23)
 
 - An MCP server or connector added recently is no longer turned off as unused: they carry no install date, so

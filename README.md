@@ -48,6 +48,7 @@ Windows, macOS and Linux in CI. Want to help test it? See [docs/TESTING.md](docs
 | **Map** | Your own "for this job, prefer this tool" tables. Claude checks a short index (`by-function.md`) first; off tools carry the path of their `SKILL.md` | A map file |
 | **Tool rules** | Rules per tool from the map: critical ones always loaded (about 2 KB), the rest shown only when the tool is used, project ones only in that project | A map with a `Rule` table |
 | **Reminder** | Once per session, if Claude writes a plan or searches without checking the map, it is reminded to grep it and read the tool's `SKILL.md` | A map |
+| **Prompt line** | One line next to each prompt: grep the map for the job, in your own words, before exploring files | A map |
 | **Shelf** | Turns off what you do not use, by usage, by your map or by a list, through official reversible settings, with a backup | `"shelf"` in config |
 | **Automatic shelf** | Off after `days` without use (or, with `keepTop`, everything but your N most-used tools), once a day in the background; back on as soon as Claude reads the tool's `SKILL.md` | `"auto": true` |
 | **Panel** | `/stockroom`: status, map checks, shelf and rule plans, undo; changes nothing without your yes | Nothing |
