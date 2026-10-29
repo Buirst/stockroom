@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.4 (2026-10-29)
+
+- `keepTop` counts a SKILL.md read again when the tool was on: Claude chose it from the listing, and project skills are
+  often opened that way. A read that woke a tool from off still does not count (0.5.3 dropped every read, which would
+  have turned off skills used only by reading).
+- A shell command that only searches for a SKILL.md path (`grep`, `find`, `rg`) is no longer taken as a read: it woke
+  the skill, showed its notice and counted as use. Only commands that print the file count (`cat`, `sed`, `head`,
+  `Get-Content`…).
+
 ## 0.5.3 (2026-10-29)
 
 - A tool used or read in the last day is never turned off by the `usage` shelf. Before, a skill woken by a read could

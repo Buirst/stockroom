@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { readJson, claudeDir } from '../lib/files.js';
 import { discoverTools, findOnPath } from '../lib/tools.js';
-import { listingChars, listedSkills, toolUsage } from '../lib/measure.js';
+import { listingChars, listedSkills, readWakes, toolUsage } from '../lib/measure.js';
 import { checkNode, loadConfig } from '../lib/config.js';
 import { planShelf, applyShelf, undoShelf, projectConflicts, stampFirstSeen } from '../lib/shelf.js';
 import { parseMap, parseRules, checkMap, externalTools, resolveRow, mapIndex } from '../lib/map.js';
@@ -207,7 +207,8 @@ function computeShelf(c) {
     ? toolUsage({ home, days: Math.max(c.days, ...Object.values(c.sections).map((s) => s.days || 0)), counts }) : new Map();
   const cases = expandMaps(c.mapFiles, home).flatMap((f) => parseMap(fs.readFileSync(f, 'utf8'), f));
   const applied = readJson(path.join(stateDir, 'applied.json'), []);
-  const r = planShelf({ tools, config: c, usage, counts, cases, applied, protectedNames: rulesNow().built.protected });
+  const wakes = readWakes(path.join(stateDir, 'auto.log'), Date.now() - c.days * 86400000);
+  const r = planShelf({ tools, config: c, usage, counts, wakes, cases, applied, protectedNames: rulesNow().built.protected });
   const brief = ({ tool, via, key, value, reason }) => ({ via, key, ...(value ? { value } : {}), kind: tool.kind, name: tool.name, reason });
   // Tools Claude sees today (a plugin counts once): logged daily to show whether the shelf holds or creeps up.
   const onNow = tools.filter((t) => t.enabled && !(t.origin === 'plugin' && t.kind !== 'plugin')).length;

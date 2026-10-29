@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { planShelf, applyShelf, undoShelf, projectConflicts, mcpPrefix, stampFirstSeen } from '../lib/shelf.js';
-import { toolUsage, readKey, readTail } from '../lib/measure.js';
+import { toolUsage, readKey, readTail, readWakes } from '../lib/measure.js';
 
 const DAY = 86400000;
 const now = Date.UTC(2026, 9, 21);
@@ -311,14 +311,16 @@ test('stampFirstSeen: a new MCP server counts as installed when first seen, so t
   assert.deepEqual(offKeys(planShelf({ tools: old, config: { ...base, shelf: 'usage' }, usage: new Map(), now })), ['deniedMcpServers/fresh']);
 });
 
-test('keepTop (0.5.3): a tool used or read in the last day stays; only launches count toward the top', () => {
-  const sk = (name, extra = {}) => ({ kind: 'skill', name, origin: 'personal', enabled: true, path: `/h/skills/${name}/SKILL.md`, off: { via: 'skillOverrides', key: name }, ...extra });
-  const tools = [sk('launched'), sk('readonly'), sk('today')];
-  const usage = new Map([['launched', now - 2 * DAY], [readKey('/h/skills/readonly/SKILL.md'), now - 2 * DAY], [readKey('/h/skills/today/SKILL.md'), now - 3600000]]);
-  // readonly was read 9 times but never launched: reads no longer lift it into the top.
-  const counts = new Map([['launched', 1], [readKey('/h/skills/readonly/SKILL.md'), 9]]);
-  const r = planShelf({ tools, config: { ...base, shelf: 'usage', keepTop: 1 }, usage, counts, now });
-  assert.deepEqual(offKeys(r), ['skillOverrides/readonly']);
+test('keepTop: a read counts like a launch unless it woke the tool; a tool used or read in the last day stays', () => {
+  const sk = (name) => ({ kind: 'skill', name, origin: 'personal', enabled: true, path: `/h/skills/${name}/SKILL.md`, off: { via: 'skillOverrides', key: name } });
+  const tools = [sk('launched'), sk('readwhileon'), sk('wokeonly'), sk('today')];
+  const r2 = (n) => readKey(`/h/skills/${n}/SKILL.md`);
+  const usage = new Map([['launched', now - 2 * DAY], [r2('readwhileon'), now - 2 * DAY], [r2('wokeonly'), now - 2 * DAY], [r2('today'), now - 3600000]]);
+  const counts = new Map([['launched', 3], [r2('readwhileon'), 2], [r2('wokeonly'), 9]]);
+  // wokeonly: its 9 reads each turned it back on from off, so they score 0.
+  const wakes = new Map([['wokeonly', 9]]);
+  const r = planShelf({ tools, config: { ...base, shelf: 'usage', keepTop: 2 }, usage, counts, wakes, now });
+  assert.deepEqual(offKeys(r), ['skillOverrides/wokeonly']);
 });
 
 test('a SKILL.md read through a shell variable counts for the skill with that folder', () => {
@@ -327,4 +329,17 @@ test('a SKILL.md read through a shell variable counts for the skill with that fo
   const t = { kind: 'skill', name: 'impeccable', origin: 'personal', enabled: true, path: 'C:/h/skills/impeccable/SKILL.md', off: { via: 'skillOverrides', key: 'impeccable' } };
   const usage = new Map([[readTail('$i/skills/impeccable/SKILL.md'), now - 2 * DAY]]);
   assert.deepEqual(planShelf({ tools: [t], config: { ...base, shelf: 'usage' }, usage, now }).off, []);
+});
+
+test('readWakes counts only the wake lines bin/pretool.js writes, inside the window', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wakes-'));
+  const log = path.join(dir, 'auto.log');
+  fs.writeFileSync(log, [
+    `${new Date(now - 2 * DAY).toISOString()} on (used): a, b@mk`,
+    `${new Date(now - 40 * DAY).toISOString()} on (used): a`,
+    `${new Date(now - DAY).toISOString()} off: c (not in your 40 most used); on (used): a; on now: 50`,
+    `${new Date(now - DAY).toISOString()} on (used): a`,
+  ].join('\n'));
+  assert.deepEqual([...readWakes(log, now - 30 * DAY)], [['a', 2], ['b@mk', 1]]);
+  assert.equal(readWakes(path.join(dir, 'none.log'), 0).size, 0);
 });

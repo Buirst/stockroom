@@ -31,6 +31,9 @@ test('skillReads: a shell command reads a SKILL.md by any spelling of the path; 
   assert.deepEqual(skillReads(sh('Get-Content $env:USERPROFILE\\.claude\\skills\\pdf\\SKILL.md', 'PowerShell'), 'C:\\Users\\X'), want);
   assert.deepEqual(skillReads(sh('cat ~/a/SKILL.md ~/b/SKILL.md'), '/home/x'), ['/home/x/a/skill.md', '/home/x/b/skill.md']);
   assert.deepEqual(skillReads(sh('grep -rn foo D:/notes'), '/home/x'), []);
+  // A search that names the path is not a read (seen 2026-10-29: a grep pattern woke impeccable and counted as use).
+  assert.deepEqual(skillReads(sh("grep -rlaF 'skills/impeccable/SKILL.md' --include=*.jsonl ."), '/home/x'), []);
+  assert.deepEqual(skillReads(sh('cd /x && find . -name SKILL.md -path */pdf/SKILL.md; cat ~/a/SKILL.md'), '/home/x'), ['/home/x/a/skill.md']);
   assert.deepEqual(skillReads({ tool_name: 'Grep', tool_input: { path: '/home/x/a/SKILL.md' } }, '/home/x'), []);
   assert.equal(toolKey(sh('cat ~/.claude/skills/pdf/SKILL.md'), index, '/home/x'), 'pdf');
   assert.match(pretoolOutput(sh('cat ~/.claude/skills/pdf/SKILL.md'), index, '/home/x'), /Stockroom rules for pdf/);
