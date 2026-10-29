@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.3 (2026-10-29)
+
+- A tool used or read in the last day is never turned off by the `usage` shelf. Before, a skill woken by a read could
+  go off again a few hours later in the next daily run.
+- `keepTop` ranks tools by launches only. Reading a SKILL.md still wakes a tool and keeps it on for the day, but
+  Claude can read a skill and then pass it over, so a read no longer counts as a launch.
+- A SKILL.md read through a path the shell builds (`$I/skills/x/SKILL.md`, a relative path) now counts as use of the
+  skill with that folder name. Before, it was recorded under the literal path and credited to no skill.
+- `auto.log` gives each turned-off tool its real reason (it said "unused 30 days" even for `keepTop`) and logs, every
+  day, how many tools are on, so you can see whether the shelf holds or creeps up.
+
 ## 0.5.2 (2026-10-24)
 
 - One line next to each prompt (a `UserPromptSubmit` hook, about 0.15 s) tells Claude to grep the map for the job in

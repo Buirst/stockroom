@@ -208,8 +208,10 @@ function computeShelf(c) {
   const cases = expandMaps(c.mapFiles, home).flatMap((f) => parseMap(fs.readFileSync(f, 'utf8'), f));
   const applied = readJson(path.join(stateDir, 'applied.json'), []);
   const r = planShelf({ tools, config: c, usage, counts, cases, applied, protectedNames: rulesNow().built.protected });
-  const brief = ({ tool, via, key, value }) => ({ via, key, ...(value ? { value } : {}), kind: tool.kind, name: tool.name });
-  return { r, off: r.off.map(brief), on: r.on.map(brief) };
+  const brief = ({ tool, via, key, value, reason }) => ({ via, key, ...(value ? { value } : {}), kind: tool.kind, name: tool.name, reason });
+  // Tools Claude sees today (a plugin counts once): logged daily to show whether the shelf holds or creeps up.
+  const onNow = tools.filter((t) => t.enabled && !(t.origin === 'plugin' && t.kind !== 'plugin')).length;
+  return { r, off: r.off.map(brief), on: r.on.map(brief), onNow };
 }
 
 function printShelf(c, r) {
@@ -253,7 +255,7 @@ function shelfApply() {
 function autoShelf() {
   const c = cfg();
   if (!c.auto || !c.shelf) return;
-  const { off, on } = computeShelf(c);
+  const { off, on, onNow } = computeShelf(c);
   const written = off.length ? applyShelf({ settingsPath, off, stateDir }).written : [];
   const back = on.length ? undoShelf({ settingsPath, stateDir, only: new Set(on.map((o) => `${o.via}/${o.key}`)) }).restored : [];
   const names = (list) => list.map((o) => o.key);
@@ -262,10 +264,11 @@ function autoShelf() {
   fs.writeFileSync(autoPath, JSON.stringify({
     ...readJson(autoPath, {}), at: new Date().toISOString(), ...(changed ? { off: names(written), on: names(back), shown: false } : {}),
   }, null, 2) + '\n');
-  if (changed) {
-    fs.appendFileSync(path.join(stateDir, 'auto.log'), `${new Date().toISOString()} off (unused ${c.days} days): `
-      + `${names(written).join(', ') || '-'}; on (used): ${names(back).join(', ') || '-'}\n`);
-  }
+  // Every run logs, changed or not: the "on now" count per day is what shows the shelf holding.
+  const why = new Map(off.map((o) => [`${o.via}/${o.key}`, o.reason]));
+  const offText = written.map((o) => `${o.key} (${why.get(`${o.via}/${o.key}`) || 'off'})`).join(', ') || '-';
+  fs.appendFileSync(path.join(stateDir, 'auto.log'), `${new Date().toISOString()} off: ${offText}; `
+    + `on (used): ${names(back).join(', ') || '-'}; on now: ${onNow - written.length + back.length}\n`);
 }
 
 function undo() {

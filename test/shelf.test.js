@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { planShelf, applyShelf, undoShelf, projectConflicts, mcpPrefix, stampFirstSeen } from '../lib/shelf.js';
-import { toolUsage } from '../lib/measure.js';
+import { toolUsage, readKey, readTail } from '../lib/measure.js';
 
 const DAY = 86400000;
 const now = Date.UTC(2026, 9, 21);
@@ -274,14 +274,14 @@ test("shelf 'usage' + keepTop: only the N most-used stay on, a plugin scored by 
     { kind: 'skill', name: 'busy:a', origin: 'plugin', plugin: 'busy', enabled: true, off: P('busy@mk') },
     { kind: 'skill', name: 'busy:b', origin: 'plugin', plugin: 'busy', enabled: true, off: P('busy@mk') },
   ];
-  const used = new Map(['top', 'rare', 'busy:a', 'busy:b'].map((n) => [n, now - DAY]));
+  const used = new Map(['top', 'rare', 'busy:a', 'busy:b'].map((n) => [n, now - 2 * DAY]));
   const counts = new Map([['top', 5], ['rare', 1], ['busy:a', 2], ['busy:b', 2]]);
   const r = planShelf({ tools: two, config: { ...base, shelf: 'usage', keepTop: 2 }, usage: used, counts, now });
   assert.deepEqual(offKeys(r), ['skillOverrides/month', 'skillOverrides/rare']);
   assert.match(r.off.find((o) => o.key === 'rare').reason, /not in your 2 most used/);
   // An MCP server, or a plugin that holds one, stays on: it could not wake on use.
   const mcp = [...two, { kind: 'mcp-server', name: 'docs', origin: 'user', enabled: true, off: { via: 'disabledMcpjsonServers', key: 'docs' } }];
-  const withMcp = planShelf({ tools: mcp, config: { ...base, shelf: 'usage', keepTop: 2 }, usage: new Map([...used, ['mcp__docs', now - DAY]]), counts, now });
+  const withMcp = planShelf({ tools: mcp, config: { ...base, shelf: 'usage', keepTop: 2 }, usage: new Map([...used, ['mcp__docs', now - 2 * DAY]]), counts, now });
   assert.deepEqual(offKeys(withMcp), ['skillOverrides/month', 'skillOverrides/rare']);
   // Without keepTop nothing used changes.
   assert.deepEqual(offKeys(planShelf({ tools: two, config: { ...base, shelf: 'usage' }, usage: used, counts, now })), []);
@@ -309,4 +309,22 @@ test('stampFirstSeen: a new MCP server counts as installed when first seen, so t
   assert.deepEqual(offKeys(planShelf({ tools: first, config: { ...base, shelf: 'usage' }, usage: new Map(), now })), []);
   const old = [server()]; stampFirstSeen(old, { 'user-mcp/fresh': now - 40 * DAY }, now);
   assert.deepEqual(offKeys(planShelf({ tools: old, config: { ...base, shelf: 'usage' }, usage: new Map(), now })), ['deniedMcpServers/fresh']);
+});
+
+test('keepTop (0.5.3): a tool used or read in the last day stays; only launches count toward the top', () => {
+  const sk = (name, extra = {}) => ({ kind: 'skill', name, origin: 'personal', enabled: true, path: `/h/skills/${name}/SKILL.md`, off: { via: 'skillOverrides', key: name }, ...extra });
+  const tools = [sk('launched'), sk('readonly'), sk('today')];
+  const usage = new Map([['launched', now - 2 * DAY], [readKey('/h/skills/readonly/SKILL.md'), now - 2 * DAY], [readKey('/h/skills/today/SKILL.md'), now - 3600000]]);
+  // readonly was read 9 times but never launched: reads no longer lift it into the top.
+  const counts = new Map([['launched', 1], [readKey('/h/skills/readonly/SKILL.md'), 9]]);
+  const r = planShelf({ tools, config: { ...base, shelf: 'usage', keepTop: 1 }, usage, counts, now });
+  assert.deepEqual(offKeys(r), ['skillOverrides/readonly']);
+});
+
+test('a SKILL.md read through a shell variable counts for the skill with that folder', () => {
+  assert.equal(readTail('$i/skills/impeccable/SKILL.md'), 'read:*/skills/impeccable/skill.md');
+  assert.equal(readTail('$i/SKILL.md'), null);
+  const t = { kind: 'skill', name: 'impeccable', origin: 'personal', enabled: true, path: 'C:/h/skills/impeccable/SKILL.md', off: { via: 'skillOverrides', key: 'impeccable' } };
+  const usage = new Map([[readTail('$i/skills/impeccable/SKILL.md'), now - 2 * DAY]]);
+  assert.deepEqual(planShelf({ tools: [t], config: { ...base, shelf: 'usage' }, usage, now }).off, []);
 });
