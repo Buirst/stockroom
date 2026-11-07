@@ -289,6 +289,11 @@ hand, `undo` leaves it on. Every `shelf apply` first copies `settings.json` to `
 
 ## Privacy
 
+Stockroom makes no network requests and sends nothing anywhere. To count which tools you use, it reads your local
+session transcripts in `~/.claude/projects/` on your machine. It changes `~/.claude/settings.json` only to turn tools
+off or back on (`enabledPlugins`, `skillOverrides`, `deniedMcpServers`, `disabledMcpjsonServers`), only after you apply
+a shelf plan or turn on `auto`, and it backs the file up first; `undo` reverts it. It never touches permissions.
+
 Stockroom makes no network requests. It reads MCP tool descriptions only when you ask (`--read-mcp` or `readMcp`), and
 then it only starts the local (stdio) servers you already configured and turned on, and from a project `.mcp.json` only
 the ones you approved in Claude Code (a cloned repository's servers never start on their own), for up to 10 seconds each, to call `tools/list`.
