@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { readJson, claudeDir } from '../lib/files.js';
 import { discoverTools, findOnPath } from '../lib/tools.js';
-import { listingChars, listedSkills, readWakes, toolUsage } from '../lib/measure.js';
+import { listingChars, listedSkills, readWakes, toolUsage, readKey, readTail } from '../lib/measure.js';
 import { checkNode, loadConfig } from '../lib/config.js';
 import { planShelf, applyShelf, undoShelf, projectConflicts, stampFirstSeen } from '../lib/shelf.js';
 import { parseMap, parseRules, checkMap, externalTools, resolveRow, mapIndex } from '../lib/map.js';
@@ -68,6 +68,36 @@ function status() {
   console.log(`Shelf: ${c.shelf ?? 'not set (nothing is turned off)'}; settings changed by Stockroom: ${applied.length}`);
   const hint = readHint(settings, c.catalogDir);
   if (hint) console.log(hint);
+}
+
+// Read-only, no install or config needed (npx github:Buirst/stockroom scan): how much of the skill listing goes to
+// skills the user has not touched lately. Writes nothing.
+function scan() {
+  const days = Number(option('days')[0] ?? 30);
+  const settings = readJson(settingsPath, {});
+  const over = settings.skillOverrides || {}, max = settings.skillListingMaxDescChars;
+  const skills = listedSkills({ home, projectDir: cwd }).filter((s) => s.invocable);
+  console.error(`Reading your sessions of the last ${days} days (large histories take a while)…`);
+  const used = toolUsage({ home, days });
+  const idle = skills.filter((s) => !used.has(s.name) && !used.has(readKey(s.path)) && !used.has(readTail(s.path)));
+  const all = listingChars(skills, over, max).total, cold = listingChars(idle, over, max).total;
+  const pct = all ? Math.round((cold / all) * 100) : 0;
+  const n = (x) => x.toLocaleString('en-US');
+  console.log([
+    'Stockroom scan (read-only: nothing was changed)', '',
+    `  Skills Claude sees in every session here: ${skills.length} (${n(all)} characters of descriptions)`,
+    `  ${`Not used in the last ${days} days:`.padEnd(41)} ${idle.length} (${n(cold)} characters, ${pct} % of the listing)`, '',
+    '  Claude Code fits this listing into 1 % of the context window and drops descriptions past it,',
+    '  least-used first (code.claude.com/docs/en/skills#skill-descriptions-are-cut-short).',
+  ].join('\n'));
+  if (idle.length) {
+    console.log([
+      '', `Share it: "Claude Code lists ${skills.length} skills in every session; ${idle.length} unused in ${days} days`
+        + ` (${pct} % of the listing). npx github:Buirst/stockroom scan"`,
+      '', 'Stockroom turns unused tools off and Claude still finds and uses them when a task needs one:',
+      '  claude plugin marketplace add Buirst/stockroom && claude plugin install stockroom@stockroom',
+    ].join('\n'));
+  }
 }
 
 // The catalog is outside the working folder; in a mode that asks, each read of it may ask too.
@@ -446,13 +476,13 @@ function reportCmd() {
 }
 
 const commands = {
-  status, check, catalog, undo, usage, auto: autoShelf, doctor, 'e2e-grade': e2eGrade, report: reportCmd,
+  status, scan, check, catalog, undo, usage, auto: autoShelf, doctor, 'e2e-grade': e2eGrade, report: reportCmd,
   shelf: () => ({ plan: shelfPlan, apply: shelfApply }[args[0]] || fail)(),
   map: () => ({ init: mapInit, 'draft-data': mapDraftData, index: mapIndexCmd }[args[0]] || fail)(),
   rules: () => ({ plan: rulesPlan, apply: rulesApply }[args[0]] || fail)(),
 };
 function fail() {
-  console.error('Usage: stockroom <status | check [--all] | catalog [--read-mcp] | shelf plan | shelf apply | rules plan | rules apply | undo |'
+  console.error('Usage: stockroom <status | scan [--days N] | check [--all] | catalog [--read-mcp] | shelf plan | shelf apply | rules plan | rules apply | undo |'
     + ' map init [--out <dir>] | map draft-data [--group <name>] | map index [--out <file>] | usage [--days N] | report [--days N] [--json] | doctor | e2e-grade <file> --expect <skill|none>>');
   process.exit(2);
 }

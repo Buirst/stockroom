@@ -35,6 +35,15 @@ test('status counts tools by kind and on/off', () => {
   assert.match(r.stdout, /Catalog: not written yet/);
 });
 
+test('scan is read-only and splits the listing into used and unused skills', () => {
+  const { home, workRoot } = makeToolsHome();
+  const r = cli(home, workRoot, 'scan', '--days', '30');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Skills Claude sees in every session here: \d+/);
+  assert.match(r.stdout, /Not used in the last 30 days: +\d+ \(.*%/);
+  assert.ok(!fs.existsSync(state(home)), 'scan must not write any state');
+});
+
 test('catalog writes the catalog; status then shows its age', () => {
   const { home, workRoot } = makeToolsHome();
   assert.equal(cli(home, workRoot, 'catalog').status, 0);

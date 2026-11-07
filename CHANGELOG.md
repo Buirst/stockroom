@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 (2026-11-07)
+
+- `stockroom scan`: a read-only check anyone can run without installing (`npx github:Buirst/stockroom scan`). It
+  counts the skills Claude sees in every session, how many were not used in the last 30 days (`--days N`) and their
+  share of the listing, and prints one line to share. It writes nothing.
+- `package.json` declares the `stockroom` command, so `npx` can run it straight from GitHub.
+
 ## 0.5.4 (2026-10-29)
 
 - `keepTop` counts a SKILL.md read again when the tool was on: Claude chose it from the listing, and project skills are

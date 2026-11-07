@@ -29,6 +29,17 @@ off after weeks without use, back on the moment Claude needs it.
 Measured in real Claude Code sessions, not simulated: method, every case and every version in
 [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
+## Check your setup first (10 seconds, nothing installed)
+
+```sh
+npx github:Buirst/stockroom scan
+```
+
+Read-only. It counts the skills Claude sees in every session and how many you have not used in the last 30 days.
+On the author's setup: 151 skills listed, 125 unused in 30 days, 81 % of the listing. Claude Code's own `/skill-doctor`
+tells you what to turn off; Stockroom makes turning it off safe, because Claude still finds and uses an off tool the
+moment a task needs it.
+
 ## Install
 
 ```sh
