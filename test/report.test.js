@@ -17,6 +17,7 @@ const MAP = `## Media
 
 const ts = (min) => new Date(Date.now() - (60 - min) * 60000).toISOString();
 const use = (id, name, input, min) => JSON.stringify({ type: 'assistant', timestamp: ts(min), message: { content: [{ type: 'tool_use', id, name, input }] } });
+const say = (text, min, extra = {}) => JSON.stringify({ type: 'user', timestamp: ts(min), message: { content: text }, ...extra });
 const result = (id, text, min) => JSON.stringify({ type: 'user', timestamp: ts(min), message: { content: [{ type: 'tool_result', tool_use_id: id, content: text }] } });
 
 function home() {
@@ -27,19 +28,23 @@ function home() {
   fs.mkdirSync(proj, { recursive: true });
   // Session a: greps by-function, three rows come back, then uses one of them.
   fs.writeFileSync(path.join(proj, 'a.jsonl'), [
+    say('add captions to this clip', 0),
     use('t1', 'Grep', { pattern: 'video|image', path: path.join(h, '.claude', 'stockroom', 'catalog', 'by-function.md') }, 1),
     result('t1', '- Add captions to a video → `media:add-captions`\n- Cut a video → `cut-video`\n- Upscale an image → `escalar-medios`', 2),
     use('t2', 'Skill', { skill: 'media:add-captions' }, 3),
   ].join('\n'));
   // Session b: never reads the map; uses playwright anyway.
-  fs.writeFileSync(path.join(proj, 'b.jsonl'), [use('t1', 'mcp__playwright__browser_navigate', { url: 'x' }, 1)].join('\n'));
+  fs.writeFileSync(path.join(proj, 'b.jsonl'), [say('open the page', 0), use('t1', 'mcp__playwright__browser_navigate', { url: 'x' }, 1)].join('\n'));
   // Session c: reads the map with Bash, then reads a SKILL.md of a consulted row and calls an MCP tool of another.
   fs.writeFileSync(path.join(proj, 'c.jsonl'), [
+    say('read the page, and do not forget Stockroom', 0),
     use('t1', 'Bash', { command: `grep -i page ${map}` }, 1),
     result('t1', '| Upscale an image | `escalar-medios` | Local |\n| Read a page with JavaScript | MCP `playwright` | Data, not DOM |', 2),
     use('t2', 'Read', { file_path: 'C:\\Users\\X\\.claude\\skills\\escalar-medios\\SKILL.md' }, 3),
     use('t3', 'mcp__playwright__browser_evaluate', {}, 4),
   ].join('\n'));
+  // A `claude -p` run (a script or a benchmark) is not one of the user's sessions.
+  fs.writeFileSync(path.join(proj, 'd.jsonl'), say('benchmark prompt', 0, { entrypoint: 'sdk-cli' }));
   const state = path.join(h, '.claude', 'stockroom');
   fs.mkdirSync(state, { recursive: true });
   fs.writeFileSync(path.join(state, 'injections.jsonl'), [
@@ -60,7 +65,8 @@ test('consulted rows come from map reads; followed when one of their tools is us
   const c = r.sessions.find((s) => s.id === 'c');
   assert.deepEqual(c.consulted.map((x) => [x.title, x.followed]), [['Upscale an image', true], ['Read a page with JavaScript', true]]);
   assert.deepEqual(r.sessions.find((s) => s.id === 'b').consulted, []);
-  assert.deepEqual(r.totals, { consulted: 5, followed: 3, reads: 2, readsFollowed: 2 });
+  assert.deepEqual(r.totals, { sessions: 3, readOwn: 1, notAsked: 2, readAsked: 1, asked: 1, consulted: 5, followed: 3, reads: 2, readsFollowed: 2 });
+  assert.equal(r.sessions.find((s) => s.id === 'd'), undefined);
 });
 
 test('injections are counted per session and tool', () => {

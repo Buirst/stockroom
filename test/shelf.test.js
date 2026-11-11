@@ -121,7 +121,8 @@ test('broken settings JSON: clear error, nothing written', () => {
   const s = tmp('{ broken');
   assert.throws(() => applyShelf({ ...s, off }), /not valid JSON/);
   assert.equal(fs.readFileSync(s.settingsPath, 'utf8'), '{ broken');
-  assert.equal(fs.existsSync(s.stateDir), false);
+  // The lock makes the state folder; nothing is left in it.
+  assert.deepEqual(fs.existsSync(s.stateDir) ? fs.readdirSync(s.stateDir) : [], []);
 });
 
 test('a missing settings.json is created, with no backup', () => {
@@ -342,4 +343,74 @@ test('readWakes counts only the wake lines bin/pretool.js writes, inside the win
   ].join('\n'));
   assert.deepEqual([...readWakes(log, now - 30 * DAY)], [['a', 2], ['b@mk', 1]]);
   assert.equal(readWakes(path.join(dir, 'none.log'), 0).size, 0);
+});
+
+test('a broken applied.json stops apply before settings.json changes, so undo never loses a change', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-broken-'));
+  const settingsPath = path.join(dir, 'settings.json');
+  const before = '{\n  "model": "x"\n}\n';
+  fs.writeFileSync(settingsPath, before);
+  fs.writeFileSync(path.join(dir, 'applied.json'), '[{"via": "skillOverr');
+  assert.throws(() => applyShelf({ settingsPath, off: [{ via: 'skillOverrides', key: 'a', value: 'off' }], stateDir: dir }),
+    /applied\.json is not valid JSON.*Nothing was changed/);
+  assert.equal(fs.readFileSync(settingsPath, 'utf8'), before);
+});
+
+test('settings are written whole (no temp file left) and old backups are pruned to 30', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-atomic-'));
+  const settingsPath = path.join(dir, 'settings.json');
+  fs.writeFileSync(settingsPath, '{}');
+  fs.mkdirSync(path.join(dir, 'backups'));
+  for (let i = 10; i < 50; i++) fs.writeFileSync(path.join(dir, 'backups', `settings-2020-01-${i}.json`), '{}');
+  fs.writeFileSync(path.join(dir, 'backups', 'settings.mine.json'), '{}'); // not Stockroom's: never pruned
+  applyShelf({ settingsPath, off: [{ via: 'skillOverrides', key: 'a', value: 'off' }], stateDir: dir });
+  assert.deepEqual(JSON.parse(fs.readFileSync(settingsPath, 'utf8')), { skillOverrides: { a: 'off' } });
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes('.tmp-')), []);
+  const kept = fs.readdirSync(path.join(dir, 'backups'));
+  assert.equal(kept.filter((f) => f.startsWith('settings-2')).length, 30);
+  assert.ok(kept.includes('settings.mine.json') && !kept.includes('settings-2020-01-10.json'));
+  undoShelf({ settingsPath, stateDir: dir });
+  assert.deepEqual(JSON.parse(fs.readFileSync(settingsPath, 'utf8')), {});
+});
+
+test('the lock: a second process waits its turn, a dead one is taken over, a busy one stops with nothing changed', async () => {
+  const { withLock } = await import('../lib/files.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-lock-'));
+  assert.equal(withLock(dir, () => 7), 7);
+  assert.equal(fs.existsSync(path.join(dir, 'lock')), false, 'released');
+  assert.throws(() => withLock(dir, () => { throw new Error('inside'); }), /inside/);
+  assert.equal(fs.existsSync(path.join(dir, 'lock')), false, 'released after an error too');
+  // Left by a process that died 20 s ago: taken over.
+  fs.mkdirSync(path.join(dir, 'lock'));
+  const old = new Date(Date.now() - 20000);
+  fs.utimesSync(path.join(dir, 'lock'), old, old);
+  assert.equal(withLock(dir, () => 'ran'), 'ran');
+  // Held right now by another process: after about 4 s it gives up without running.
+  fs.mkdirSync(path.join(dir, 'lock'));
+  let ran = false;
+  assert.throws(() => withLock(dir, () => { ran = true; }), /busy in another session; nothing was changed/);
+  assert.equal(ran, false);
+});
+
+test('a settings.json that is a link stays a link: the file it points to is the one rewritten', async (t) => {
+  const { atomicWrite } = await import('../lib/files.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-link-'));
+  const real = path.join(dir, 'dotfiles', 'settings.json');
+  const link = path.join(dir, 'settings.json');
+  fs.mkdirSync(path.dirname(real));
+  fs.writeFileSync(real, '{}');
+  try { fs.symlinkSync(real, link, 'file'); } catch { t.skip('this machine does not let tests create links'); return; }
+  atomicWrite(link, '{"a":1}');
+  assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
+  assert.equal(fs.readFileSync(real, 'utf8'), '{"a":1}');
+});
+
+test('the lock gives up, never spins, in a folder that cannot be written', async () => {
+  const { withLock } = await import('../lib/files.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stockroom-ro-'));
+  const real = fs.mkdirSync;
+  fs.mkdirSync = (p, o) => { if (String(p).endsWith('lock')) { const e = new Error('no'); e.code = 'EPERM'; throw e; } return real(p, o); };
+  const t0 = Date.now();
+  try { assert.throws(() => withLock(dir, () => 1), /nothing was changed/); } finally { fs.mkdirSync = real; }
+  assert.ok(Date.now() - t0 < 15000, 'ended');
 });

@@ -260,6 +260,7 @@ test('report prints totals and --json gives the same numbers', () => {
   const proj = path.join(home, '.claude', 'projects', 'p');
   fs.mkdirSync(proj, { recursive: true });
   fs.writeFileSync(path.join(proj, 's.jsonl'), [
+    JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), message: { content: 'find the bug' } }),
     JSON.stringify({ type: 'assistant', timestamp: new Date().toISOString(), message: { content: [{ type: 'tool_use', id: 'a', name: 'Read', input: { file_path: map } }] } }),
     JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), message: { content: [{ type: 'tool_result', tool_use_id: 'a', content: '| Find a bug | `debugging` | x |' }] } }),
   ].join('\n'));
@@ -268,7 +269,8 @@ test('report prints totals and --json gives the same numbers', () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /Map rows consulted: 1, followed: 0/);
   const j = JSON.parse(cli(home, workRoot, 'report', '--json').stdout);
-  assert.deepEqual(j.totals, { consulted: 1, followed: 0, reads: 1, readsFollowed: 0 });
+  assert.deepEqual(j.totals, { sessions: 1, readOwn: 1, notAsked: 1, readAsked: 0, asked: 0, consulted: 1, followed: 0, reads: 1, readsFollowed: 0 });
+  assert.match(r.stdout, /Sessions: 1\. Read the map on their own: 1 of 1; after you named Stockroom: 0 of 0\./);
   assert.match(r.stdout, /Map reads: 1, followed by a tool they named: 0/);
 });
 
@@ -300,4 +302,24 @@ test('doctor: a project whose paths match no file is a problem', () => {
   const r = cli(h.home, h.workRoot, 'doctor');
   assert.equal(r.status, 1);
   assert.match(r.stdout, /problem: project "Games" matches no files under /);
+});
+
+test('check lists tools in real use that no row names, most used first, and separates what a plugin update removed', () => {
+  const { home, workRoot } = makeToolsHome();
+  const map = path.join(home, 'map.md');
+  fs.writeFileSync(map, '| Case | Tool | Why |\n|---|---|---|\n| Debug | `debugging` | x |\n| Old critique | `tools:critique-v1` | x |\n| Ship | `ghost-tool` | x |\n');
+  config(home, { mapFiles: [map] });
+  const proj = path.join(home, '.claude', 'projects', 'p');
+  fs.mkdirSync(proj, { recursive: true });
+  const use = (name, input) => JSON.stringify({ type: 'assistant', timestamp: new Date().toISOString(), message: { content: [{ type: 'tool_use', id: 'x', name, input }] } });
+  fs.writeFileSync(path.join(proj, 's.jsonl'), [
+    ...[1, 2, 3, 4].map(() => use('mcp__fs__read', {})), // an MCP server no row names: 4 uses
+    ...[1, 2, 3].map(() => use('Skill', { skill: 'quiet' })), // a skill no row names: 3 uses
+    use('Skill', { skill: 'tools:deploy' }), // once: not worth a row yet
+  ].join('\n'));
+  const r = cli(home, workRoot, 'check');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Used in the last 30 days but in no row \(2\); add a row for each, most used first:\n  MCP fs: 4 uses\n  quiet: 3 uses\n/);
+  assert.match(r.stdout, /Renamed or removed by a plugin update \(1\):[^\n]*\n  map\.md · Old critique: `tools:critique-v1`/);
+  assert.match(r.stdout, /Names in the map that match nothing \(1\):[^\n]*\n  map\.md · Ship: `ghost-tool`/);
 });

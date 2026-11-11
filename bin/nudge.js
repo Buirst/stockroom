@@ -19,6 +19,11 @@ try {
     const seen = consultedMap(fs.readFileSync(input.transcript_path, 'utf8'), catalogDir);
     fs.mkdirSync(path.dirname(flag), { recursive: true });
     fs.writeFileSync(flag, seen ? 'consulted' : 'reminded');
+    // One flag per session, forever, otherwise: drop the ones of sessions that ended long ago.
+    for (const f of fs.readdirSync(path.dirname(flag))) {
+      const p = path.join(path.dirname(flag), f);
+      try { if (Date.now() - fs.statSync(p).mtimeMs > 14 * 86400000) fs.rmSync(p); } catch { /* another session's: skip */ }
+    }
     if (!seen) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: nudgeText(index) } }));
   }
 } catch { /* no transcript, bad input or unwritable state: say nothing */ }

@@ -81,3 +81,15 @@ test('the prompt line: points at the map on every prompt, silent when there is n
   assert.match(said.additionalContext, /^Stockroom: if this request may need a skill.*by-function\.md/);
   assert.equal(runPrompt(home({ map: false }).h).stdout, '');
 });
+
+test('flags of sessions that ended weeks ago are deleted; recent ones stay', () => {
+  const { h } = home();
+  const dir = path.join(h, '.claude', 'stockroom', 'nudged');
+  fs.mkdirSync(dir, { recursive: true });
+  const old = new Date(Date.now() - 20 * 86400000);
+  fs.writeFileSync(path.join(dir, 'old.flag'), 'reminded');
+  fs.utimesSync(path.join(dir, 'old.flag'), old, old);
+  fs.writeFileSync(path.join(dir, 'recent.flag'), 'consulted');
+  run(h, { session_id: 'now', transcript_path: transcript(h, [use('Bash', { command: 'ls' })]), tool_name: 'Write' });
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['now.flag', 'recent.flag']);
+});

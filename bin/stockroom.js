@@ -7,8 +7,8 @@ import { readJson, claudeDir } from '../lib/files.js';
 import { discoverTools, findOnPath } from '../lib/tools.js';
 import { listingChars, listedSkills, readWakes, toolUsage, readKey, readTail } from '../lib/measure.js';
 import { checkNode, loadConfig } from '../lib/config.js';
-import { planShelf, applyShelf, undoShelf, projectConflicts, stampFirstSeen } from '../lib/shelf.js';
-import { parseMap, parseRules, checkMap, externalTools, resolveRow, mapIndex } from '../lib/map.js';
+import { planShelf, applyShelf, undoShelf, projectConflicts, stampFirstSeen, mcpPrefix } from '../lib/shelf.js';
+import { parseMap, parseRules, checkMap, externalTools, resolveRow, mapIndex, goneNames } from '../lib/map.js';
 import { buildRules, planRules, writeRules, removeRules, targets } from '../lib/rules.js';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -136,10 +136,18 @@ function check() {
     console.log(`External tools in the map: ${n('web')} websites, ${n('app')} apps, ${n('cli')} CLIs.`);
     if (missing.length) console.log(`  CLIs not found on PATH: ${missing.map((t) => t.name).join(', ')}`);
   }
-  if (unknown.length) {
-    console.log(`\nNames in the map that match nothing (${unknown.length}): renamed or removed tools, or programs and`
+  // First what is always a mistake: a plugin that is installed but no longer has the skill a row names.
+  const gone = unknown.filter((u) => u.gone);
+  if (gone.length) {
+    console.log(`\nRenamed or removed by a plugin update (${gone.length}): the plugin is installed but no longer has this skill, so`
+      + ' the row points nowhere. Name its current skill, or delete the row:');
+    for (const u of gone) console.log(`  ${path.basename(u.file)} · ${u.title}: \`${u.token}\`${u.closest ? ` (closest installed: ${u.closest.name})` : ''}`);
+  }
+  const unknown2 = unknown.filter((u) => !u.gone);
+  if (unknown2.length) {
+    console.log(`\nNames in the map that match nothing (${unknown2.length}): renamed or removed tools, or programs and`
       + ' websites to mark with web/app/CLI:');
-    for (const u of unknown) {
+    for (const u of unknown2) {
       console.log(`  ${path.basename(u.file)} · ${u.title}: \`${u.token}\`${u.closest ? ` (closest installed: ${u.closest.name})` : ''}`);
     }
   }
@@ -149,6 +157,17 @@ function check() {
     if (of.length) console.log(`  ${k}: ${of.length}${flag('all') ? `: ${of.map((t) => t.name).join(', ')}` : ''}`);
   }
   if (!flag('all')) console.log('Add --all to list their names.');
+  // The rows worth adding first: tools in real use that no row names (a map that follows what is used stays useful).
+  const counts = new Map();
+  toolUsage({ home, days: c.days, counts });
+  const label = (t) => `${t.kind === 'mcp-server' ? 'MCP ' : ''}${t.name}`;
+  const busy = [...new Map(unmapped.filter((t) => t.kind !== 'hook' && t.kind !== 'plugin') // one line per name
+    .map((t) => [label(t), counts.get(t.kind === 'mcp-server' ? mcpPrefix(t) : t.name) || 0]))]
+    .filter(([, n]) => n >= 3).sort((x, y) => y[1] - x[1]);
+  if (busy.length) {
+    console.log(`\nUsed in the last ${c.days} days but in no row (${busy.length}); add a row for each, most used first:`);
+    for (const [name, n] of busy) console.log(`  ${name}: ${n} uses`);
+  }
   const { built } = rulesNow();
   if (built.warnings.length) console.log(`\nRules to fix in the map (${built.warnings.length}):\n  ${built.warnings.join('\n  ')}`);
 }
@@ -442,6 +461,14 @@ function doctor() {
       if (stale.length) for (const [p] of stale) problem(`${p} differs from the map; run "stockroom rules plan" then "rules apply", or edit the map`);
       else ok('generated rules match the map');
     } else ok('no generated rules (run "stockroom rules plan" to start)');
+    const mapFiles = expandMaps(c.mapFiles, home);
+    const texts = mapFiles.map((f) => fs.readFileSync(f, 'utf8'));
+    const gone = goneNames(mapFiles.flatMap((f, i) => parseMap(texts[i], f)), mapFiles.flatMap((f, i) => parseRules(texts[i], f)),
+      discoverTools({ home, workRoot: cwd }));
+    if (gone.length) {
+      problem(`the map names ${gone.length} tools a plugin update renamed or removed (${gone.slice(0, 5).map((g) => g.token).join(', ')}`
+        + `${gone.length > 5 ? '…' : ''}); run "stockroom check" and fix those rows`);
+    } else if (mapFiles.length) ok('every plugin skill the map names still exists');
     for (const [name, globs] of Object.entries(c.projects)) {
       // shortcut: checks the folder before the first wildcard exists and is not empty; enough for "Folder/**" globs.
       const found = globs.some((g) => {
@@ -465,6 +492,8 @@ function reportCmd() {
   const r = report({ home, days: Number(option('days')[0] || 7), mapFiles: expandMaps(c.mapFiles, home), catalogDir: c.catalogDir });
   if (flag('json')) { console.log(JSON.stringify(r, null, 2)); return; }
   const pct = r.totals.consulted ? ` (${Math.round((100 * r.totals.followed) / r.totals.consulted)} %)` : '';
+  const t = r.totals;
+  console.log(`Sessions: ${t.sessions}. Read the map on their own: ${t.readOwn} of ${t.notAsked}; after you named Stockroom: ${t.readAsked} of ${t.asked}.`);
   console.log(`Map reads: ${r.totals.reads}, followed by a tool they named: ${r.totals.readsFollowed}.`);
   console.log(`Map rows consulted: ${r.totals.consulted}, followed: ${r.totals.followed}${pct}.`);
   console.log(`Loaded in every session by Stockroom: ${r.alwaysLoadedBytes} bytes (critical rules file + hook line).`);

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.6.1 (2026-11-11)
+
+Hardening, from an audit of three weeks of real use.
+
+- **settings.json is written whole or not at all.** Stockroom wrote it in place; a hook cut off at its timeout in the
+  middle of a write could leave it broken. It now writes a temp file and renames it, retries while another program
+  holds the file, and, if something else changed settings.json between the read and the write, makes its change again
+  on the new content instead of overwriting it.
+- **One Stockroom process at a time changes the settings.** Hooks of two sessions and the daily run could write at
+  once and lose each other's changes (measured: 12 at once kept 5 to 9, some unrecorded). A lock makes them take
+  turns: 12 of 12 kept and recorded, four runs in a row.
+- **A broken `applied.json` stops `shelf apply` before settings.json changes.** Before, the settings were written first
+  and the record after, so a failure in between left changes that `undo` could not revert.
+- **Skills a plugin update renamed or removed.** A map row or a rule that names `plugin:skill` keeps pointing nowhere
+  after the plugin drops that skill, and nothing said so. Now `stockroom check` lists them first, `doctor` reports
+  them as a problem, the job index marks the row as gone, and the session is told once when it happens.
+- **A skill whose frontmatter name differs from its folder answers to both names.** Claude Code launches
+  `taste-skill/skills/taste-skill` as `taste-skill:design-taste-frontend`; Stockroom knew only the folder name, so
+  those launches were not counted as use and its rules were not shown.
+- `check` lists the tools used three times or more in the last `days` that no row names, most used first: the rows
+  worth adding. A map that follows what is really used stays useful.
+- `report` separates the sessions that read the map on their own from the ones where you named Stockroom, and no
+  longer counts `claude -p` runs (scripts, benchmarks) as your sessions.
+- Housekeeping: settings and rules backups are kept to the newest 30; reminder flags of sessions that ended more than
+  two weeks ago are deleted.
+
 ## 0.6.0 (2026-11-07)
 
 - `stockroom scan`: a read-only check anyone can run without installing (`npx github:Buirst/stockroom scan`). It
